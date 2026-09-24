@@ -1,0 +1,1355 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A Cela da Tártaro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Rock+Salt&family=Share+Tech+Mono&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --ink:#070908;
+    --panel:rgba(9,11,11,.93);
+    --paper:#ddd5c4;
+    --dim:#948d80;
+    --faint:#5d5a53;
+    --rust:#8a2a1f;
+    --opt:#d9573f;
+    --ochre:#c49449;
+    --health:#c8413a;
+    --morale:#5f8fd0;
+    --serif:"Libre Baskerville", Georgia, "Times New Roman", serif;
+    --cond:"Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+    --mono:"Share Tech Mono", "Courier New", monospace;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{height:100%}
+  body{margin:0; background:var(--ink); color:var(--paper); font-family:var(--serif); padding-inline:16px; padding-block:12px}
+  .game{position:relative; max-width:1400px; margin:0 auto}
+  .scene{position:relative; width:100%; max-width:100%; aspect-ratio:16/9; background:#000; overflow:hidden}
+  #cv{display:block; width:100%; height:100%}
+
+  /* ---------- Diário (coluna à direita) ---------- */
+  #log{
+    position:absolute; top:0; right:0; bottom:0; width:34%;
+    display:flex; flex-direction:column;
+    background:linear-gradient(to right, rgba(9,11,11,0) 0, rgba(9,11,11,.88) 9%, var(--panel) 20%);
+    padding:14px 18px 14px 44px;
+  }
+  .clock{display:flex; align-items:flex-end; justify-content:space-between; gap:10px; border-bottom:1px solid #2b2a27; padding-bottom:8px}
+  .clock .t{font-family:var(--mono); font-size:clamp(20px,2.4vw,34px); color:#e6ddcb; line-height:1; font-variant-numeric:tabular-nums}
+  .clock .t.crit{color:var(--health)}
+  .clock .l{font-family:var(--cond); font-size:12px; letter-spacing:.14em; color:var(--dim); text-transform:uppercase}
+  .tools{display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end}
+  .tools button{font-family:var(--cond); font-weight:600; font-size:12px; letter-spacing:.1em; background:transparent; color:var(--dim); border:1px solid #34322e; padding:3px 7px; cursor:pointer}
+  .tools button:hover,.tools button:focus-visible{color:var(--paper); border-color:var(--paper); outline:none}
+  .tools button.on{color:var(--ochre); border-color:var(--ochre)}
+  #logInner{flex:1; overflow-y:auto; padding:10px 6px 6px 0; scrollbar-width:thin; scrollbar-color:#3a3833 transparent}
+  .e{margin:0 0 .9em; font-size:clamp(13px,1.15vw,16px); line-height:1.6; color:var(--paper); animation:rise .35s ease-out}
+  .e.old{color:#9f988a}
+  .e.narr{color:#c9c1b0}
+  .e.sys{font-family:var(--cond); letter-spacing:.06em; color:var(--dim); font-size:clamp(12px,1vw,14px)}
+  .e.clue{color:#e9dfc8; font-style:italic; border-left:2px solid var(--ochre); padding-left:10px}
+  .e.alarm{color:var(--health); font-family:var(--cond); font-weight:700; letter-spacing:.08em; font-size:clamp(14px,1.25vw,17px)}
+  .e.you{color:#f3ecdc}
+  .e.good{color:#b5d68a} .e.bad{color:#e07a64}
+  .who{font-family:var(--cond); font-weight:700; letter-spacing:.07em; text-transform:uppercase; font-size:1.02em}
+  .roll{font-family:var(--cond); font-weight:600; letter-spacing:.05em}
+  #choices{display:flex; flex-direction:column; gap:2px; padding-top:8px; border-top:1px solid #2b2a27}
+  .opt{
+    all:unset; cursor:pointer; font-size:clamp(13px,1.15vw,16px); line-height:1.5; color:var(--opt); padding:3px 4px;
+  }
+  .opt:hover,.opt:focus-visible,.opt.sel{color:#f3ecdc; background:rgba(255,255,255,.04)}
+  .opt[aria-disabled="true"]{color:var(--faint); cursor:not-allowed}
+  .opt .chk{font-family:var(--cond); font-weight:700; letter-spacing:.05em}
+  .opt .cost{font-family:var(--cond); color:var(--dim); letter-spacing:.05em}
+  .cont{
+    align-self:flex-end; font-family:var(--cond); font-weight:700; letter-spacing:.16em; font-size:14px;
+    background:var(--rust); color:#f2e8d8; border:0; padding:8px 22px; cursor:pointer; margin-top:4px;
+  }
+  .cont:hover,.cont:focus-visible{background:#a8372a; outline:1px solid #f2e8d8}
+  .dicebox{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .die{width:44px; height:44px; border:2px solid #cfc6b3; display:grid; place-items:center; font-family:var(--mono); font-size:24px; color:#f3ecdc; background:#1a1917}
+  .die.spin{animation:shake .12s infinite}
+  .phys{display:flex; gap:4px; align-items:center; flex-wrap:wrap; font-family:var(--cond); font-size:12px; color:var(--dim); letter-spacing:.08em}
+  .phys button{font-family:var(--mono); font-size:15px; background:transparent; color:var(--paper); border:1px solid #45423c; width:28px; height:28px; cursor:pointer}
+  .phys button:hover,.phys button:focus-visible{border-color:var(--paper); outline:none}
+  .mods{font-family:var(--cond); font-size:13px; color:var(--dim); letter-spacing:.05em}
+
+  /* ---------- Retrato, saúde e moral ---------- */
+  #hud{position:absolute; left:14px; bottom:12px; display:flex; align-items:flex-end; gap:10px; pointer-events:none}
+  #portrait{width:clamp(64px,8vw,112px); height:auto; aspect-ratio:110/130; border:1px solid #3a3833; background:#0d1110}
+  .meters{display:flex; flex-direction:column; gap:5px; font-family:var(--cond); font-size:12px; letter-spacing:.12em; color:var(--dim)}
+  .pips{display:flex; gap:4px; align-items:center}
+  .pips b{font-weight:600; width:48px}
+  .pips i{width:11px; height:11px; border-radius:50%; border:1px solid currentColor; display:inline-block}
+  .pips.h{color:var(--health)} .pips.m{color:var(--morale)}
+  .pips i.on{background:currentColor}
+  .tag{color:#9dcf5a; font-weight:700}
+  #tip{
+    position:absolute; pointer-events:none; transform:translate(-50%, -100%);
+    background:rgba(12,13,13,.9); border:1px solid #6d665a; padding:6px 10px; max-width:280px;
+    font-size:clamp(11px,1vw,14px); line-height:1.4; color:#eee6d6
+  }
+  #tip b{display:block; font-family:var(--cond); letter-spacing:.1em; font-size:.95em; color:var(--ochre)}
+
+  #journal{position:absolute; inset:7% 38% 7% 4%; background:rgba(12,13,13,.95); border:1px solid #6d665a; padding:18px 22px; overflow:auto; z-index:4}
+  #journal h2{font-family:var(--cond); font-weight:700; letter-spacing:.14em; font-size:16px; color:var(--ochre); margin:0 0 10px}
+  #journal li{margin:6px 0; font-style:italic; line-height:1.5; font-size:clamp(13px,1.1vw,16px)}
+  #journal p{font-family:var(--cond); color:var(--dim); letter-spacing:.08em; font-size:12px}
+
+  #title{
+    position:absolute; inset:0; z-index:5; display:flex; flex-direction:column; justify-content:center; gap:14px;
+    padding:6% 8%; background:linear-gradient(90deg, rgba(5,6,6,.92) 0, rgba(5,6,6,.7) 45%, rgba(5,6,6,.2) 100%);
+  }
+  #title h1{margin:0; font-family:var(--cond); font-weight:700; font-size:clamp(40px,8vw,112px); line-height:.9; letter-spacing:.02em; color:#e9dfc8; text-wrap:balance}
+  #title h1 span{display:block; color:var(--health)}
+  #title p{margin:0; max-width:46ch; font-size:clamp(13px,1.3vw,17px); line-height:1.6; color:#bdb5a5}
+  #title .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap; font-family:var(--cond); letter-spacing:.1em; color:var(--dim); font-size:13px}
+  #title select{font-family:var(--cond); font-size:15px; background:#111; color:var(--paper); border:1px solid #45423c; padding:4px 8px}
+  #title select:focus-visible{outline:1px solid var(--paper)}
+  #startBtn{align-self:flex-start}
+  #loading{font-family:var(--cond); letter-spacing:.14em; color:var(--dim); font-size:13px}
+
+  @keyframes rise{from{opacity:0; transform:translateY(6px)} to{opacity:1; transform:none}}
+  @keyframes shake{0%{transform:rotate(-8deg)} 50%{transform:rotate(8deg)} 100%{transform:rotate(-8deg)}}
+  @media (max-width:820px){
+    #log{position:static; width:auto; height:62vh; background:var(--panel); padding:12px 14px}
+    #journal{inset:4%}
+    #title{padding:6%}
+  }
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important} }
+</style>
+
+<div class="game" id="game">
+  <div class="scene" id="scene">
+    <canvas id="cv" width="1280" height="720" aria-label="Cela de contenção em perspectiva isométrica"></canvas>
+    <div id="hud">
+      <canvas id="portrait" width="110" height="130" aria-hidden="true"></canvas>
+      <div class="meters">
+        <div class="pips h"><b>SAÚDE</b><span id="hp"></span></div>
+        <div class="pips m"><b>MORAL</b><span id="mo"></span></div>
+        <div id="status"></div>
+      </div>
+    </div>
+    <div id="tip" hidden></div>
+    <div id="journal" hidden>
+      <h2>DIÁRIO · PISTAS DO CÓDIGO</h2>
+      <ul id="jlist"></ul>
+      <p>CLIQUE PARA FECHAR</p>
+    </div>
+  </div>
+  <aside id="log" aria-label="Diário">
+    <div class="clock">
+      <div><div class="l">Detonação do reator</div><div class="t" id="clock">--:--</div></div>
+      <div class="tools">
+        <button id="jBtn" type="button">DIÁRIO</button>
+        <button id="pBtn" type="button">PAUSAR</button>
+        <button id="sBtn" type="button">SOM</button>
+        <button id="fBtn" type="button">TELA CHEIA</button>
+      </div>
+    </div>
+    <div id="logInner" aria-live="polite"></div>
+    <div id="choices"></div>
+  </aside>
+  <div id="title">
+    <h1>SINAL MORTO <span>A CELA</span></h1>
+    <p>Você acorda numa cela da nave mineradora CSV Tártaro. O reator vai explodir. A porta pede um código que ninguém lhe deu.</p>
+    <div class="row"><label for="mins">TEMPO ATÉ A DETONAÇÃO</label>
+      <select id="mins"><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="60" selected>60 minutos</option></select></div>
+    <button class="cont" id="startBtn" type="button">ACORDAR</button>
+    <div id="loading">MISTURANDO A TINTA...</div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const rnd = n => Math.random() * n | 0;
+const pickOne = a => a[rnd(a.length)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function mk(w, h) { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; }
+
+const CW = 1280, CH = 720;
+const cv = $("cv"), ctx = cv.getContext("2d");
+
+/* =========================================================
+   GEOMETRIA ISOMÉTRICA
+   ========================================================= */
+const TW = 88, TH = 44, OX = 470, OY = 205, WH = 215;
+const iso = (x, y, z = 0) => [OX + (x - y) * TW / 2, OY + (x + y) * TH / 2 - z];
+const A0 = iso(0, 0, 0), B0 = iso(0, 8, 0);
+const wA = (u, z) => [A0[0] + u, A0[1] + u * 0.5 - z];   // parede da direita (y = 0), u = x * 44
+const wB = (u, z) => [B0[0] + u, B0[1] - u * 0.5 - z];   // parede da esquerda (x = 0), u = (8 - y) * 44
+function onA(g, fn) { g.save(); g.transform(1, 0.5, 0, 1, A0[0], A0[1]); fn(g); g.restore(); }
+function onB(g, fn) { g.save(); g.transform(1, -0.5, 0, 1, B0[0], B0[1]); fn(g); g.restore(); }
+function poly(g, pts, fill, stroke, lw = 1) {
+  g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+  g.closePath();
+  if (fill) { g.fillStyle = fill; g.fill(); }
+  if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.stroke(); }
+}
+function box(g, x, y, z, w, d, h, top, left, right) {
+  poly(g, [iso(x, y + d, z), iso(x + w, y + d, z), iso(x + w, y + d, z + h), iso(x, y + d, z + h)], left);
+  poly(g, [iso(x + w, y, z), iso(x + w, y + d, z), iso(x + w, y + d, z + h), iso(x + w, y, z + h)], right);
+  poly(g, [iso(x, y, z + h), iso(x + w, y, z + h), iso(x + w, y + d, z + h), iso(x, y + d, z + h)], top);
+}
+function isoEllipse(g, x, y, rx, color, alpha = 1) {
+  const [sx, sy] = iso(x, y, 0);
+  g.save(); g.globalAlpha = alpha; g.fillStyle = color; g.beginPath(); g.ellipse(sx, sy, rx, rx / 2, 0, 0, Math.PI * 2); g.fill(); g.restore();
+}
+function inPoly(x, y, pts) {
+  let c = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+const WALLA = [iso(0, 0, 0), iso(8, 0, 0), iso(8, 0, WH), iso(0, 0, WH)];
+const WALLB = [iso(0, 0, 0), iso(0, 8, 0), iso(0, 8, WH), iso(0, 0, WH)];
+const FLOOR = [iso(0, 0), iso(8, 0), iso(8, 8), iso(0, 8)];
+function hsh(n) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+
+/* =========================================================
+   PINTURA: transforma formas chapadas em pinceladas
+   ========================================================= */
+function paint(src, o = {}) {
+  const W = src.width, H = src.height;
+  const out = mk(W, H), g = out.getContext("2d");
+  g.drawImage(src, 0, 0);
+  const d = src.getContext("2d").getImageData(0, 0, W, H).data;
+  const at = (x, y) => (((Math.max(0, Math.min(H - 1, y | 0))) * W) + Math.max(0, Math.min(W - 1, x | 0))) * 4;
+  const diff = (a, b) => Math.abs(d[a] - d[b]) + Math.abs(d[a + 1] - d[b + 1]) + Math.abs(d[a + 2] - d[b + 2]);
+  g.lineCap = "round";
+  if (o.atop) g.globalCompositeOperation = "source-atop";
+  const n = o.n || 40000, minL = o.minL || 4, maxL = o.maxL || 12, w0 = o.w0 || 2, w1 = o.w1 || 4, jit = o.jit || 16;
+  for (let i = 0; i < n; i++) {
+    const x = Math.random() * W, y = Math.random() * H, k = at(x, y);
+    if (d[k + 3] < 20) continue;
+    const ang = o.dir ? o.dir(x, y) : Math.random() * Math.PI;
+    let L = minL + Math.random() * (maxL - minL);
+    let dx = Math.cos(ang) * L / 2, dy = Math.sin(ang) * L / 2;
+    if (diff(k, at(x + dx, y + dy)) > 50 || diff(k, at(x - dx, y - dy)) > 50) { dx *= 0.25; dy *= 0.25; }
+    const j = (Math.random() - 0.5) * jit, warm = (Math.random() - 0.5) * jit * 0.5;
+    g.strokeStyle = `rgba(${d[k] + j + warm | 0},${d[k + 1] + j | 0},${d[k + 2] + j - warm | 0},${o.alpha || 0.55})`;
+    g.lineWidth = w0 + Math.random() * (w1 - w0);
+    g.beginPath(); g.moveTo(x - dx, y - dy); g.lineTo(x + dx, y + dy); g.stroke();
+  }
+  return out;
+}
+const ISO_ANG = Math.atan2(0.5, 1);
+function sceneDir(x, y) {
+  const r = Math.random();
+  if (inPoly(x, y, WALLA)) return r < 0.6 ? ISO_ANG : Math.PI / 2 + (Math.random() - 0.5) * 0.3;
+  if (inPoly(x, y, WALLB)) return r < 0.6 ? -ISO_ANG : Math.PI / 2 + (Math.random() - 0.5) * 0.3;
+  if (inPoly(x, y, FLOOR)) return (r < 0.5 ? ISO_ANG : -ISO_ANG) + (Math.random() - 0.5) * 0.25;
+  return Math.random() * Math.PI;
+}
+function grainTile() {
+  const c = mk(256, 256), g = c.getContext("2d"), im = g.createImageData(256, 256);
+  for (let i = 0; i < im.data.length; i += 4) { const v = 128 + (Math.random() - 0.5) * 90; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+  g.putImageData(im, 0, 0);
+  return c;
+}
+
+/* =========================================================
+   CENÁRIO — a cela
+   ========================================================= */
+const COL = {
+  void: "#0b0f0e", wallB: "#3b504b", wallA: "#2a3a37", cap: "#151b1a",
+  floor: "#2c322e", floor2: "#262b28", seam: "#171b19",
+  rust: "#7b4a2c", ochre: "#a8742e", hazard: "#b58f2c", blood: "#4f110d", blood2: "#6e1a13",
+  metal: "#58605a", metalD: "#373d39", metalL: "#7d857c",
+};
+function drawRoom(g, f) {
+  g.fillStyle = COL.void; g.fillRect(0, 0, CW, CH);
+  const bgr = g.createRadialGradient(470, 300, 50, 470, 300, 800);
+  bgr.addColorStop(0, "#16201e"); bgr.addColorStop(1, "#050706");
+  g.fillStyle = bgr; g.fillRect(0, 0, CW, CH);
+
+  // ---- chão
+  for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+    const h = hsh(i * 13 + j * 7);
+    const c = h < 0.33 ? COL.floor : h < 0.66 ? COL.floor2 : "#303631";
+    poly(g, [iso(i, j), iso(i + 1, j), iso(i + 1, j + 1), iso(i, j + 1)], c, COL.seam, 1.2);
+    if (h > 0.5) { const [bx, by] = iso(i + 0.1, j + 0.1); g.fillStyle = "#4a524c"; g.fillRect(bx - 1, by, 2, 2); }
+  }
+  for (let k = 0; k <= 8; k += 2) { poly(g, [iso(k, 0), iso(k, 8)], null, "#111412", 2.5); poly(g, [iso(0, k), iso(8, k)], null, "#111412", 2.5); }
+  for (let k = 0; k < 90; k++) {
+    const x = hsh(k) * 8, y = hsh(k + 50) * 8, r = 6 + hsh(k + 9) * 26;
+    isoEllipse(g, x, y, r, k % 7 === 0 ? "#3a2a1c" : "#121513", 0.25 + hsh(k + 3) * 0.3);
+  }
+  // marcas de arrasto e sangue
+  for (let k = 0; k < 26; k++) { const p = k / 26; isoEllipse(g, 2.2 + p * 3.2, 5.6 - p * 0.4 + Math.sin(k) * 0.08, 10 - p * 4, COL.blood, 0.5); }
+  isoEllipse(g, 6.1, 5.4, 70, COL.blood, 0.85); isoEllipse(g, 6.3, 5.3, 44, COL.blood2, 0.7);
+  // papéis
+  [[3.2, 3.4, 0.2], [4.6, 6.8, -0.4], [2.6, 6.2, 0.7], [6.9, 3.2, 0.1]].forEach(([x, y, r]) => {
+    const [sx, sy] = iso(x, y); g.save(); g.translate(sx, sy); g.rotate(r); g.fillStyle = "#b9b2a0"; g.fillRect(-12, -6, 24, 12); g.fillStyle = "#8c8575"; g.fillRect(-9, -3, 16, 1.5); g.fillRect(-9, 1, 12, 1.5); g.restore();
+  });
+
+  // ---- parede da esquerda (B)
+  poly(g, WALLB, COL.wallB);
+  onB(g, g => {
+    for (let u = 0; u <= 352; u += 44) { g.fillStyle = "#2c3c38"; g.fillRect(u - 1, -WH, 2, WH); }
+    g.fillStyle = "#2f403c"; g.fillRect(0, -34, 352, 34);
+    g.fillStyle = "#4a5f59"; g.fillRect(0, -36, 352, 3);
+    g.fillStyle = "#34463f"; g.fillRect(0, -150, 352, 4);
+    for (let k = 0; k < 16; k++) { const u = hsh(k + 70) * 340, len = 30 + hsh(k + 80) * 110; const gr = g.createLinearGradient(0, -200, 0, -200 + len); gr.addColorStop(0, "rgba(123,74,44,.55)"); gr.addColorStop(1, "rgba(123,74,44,0)"); g.fillStyle = gr; g.fillRect(u, -205, 6 + hsh(k) * 10, len); }
+    // tubulação
+    g.fillStyle = "#1d2422"; g.fillRect(0, -198, 352, 14); g.fillStyle = "#56615b"; g.fillRect(0, -198, 352, 3);
+    g.fillStyle = "#6b4027"; g.fillRect(0, -178, 352, 7);
+    for (let u = 20; u < 352; u += 70) { g.fillStyle = "#2a302d"; g.fillRect(u, -200, 8, 30); }
+    // escrita de sangue
+    g.font = '30px "Rock Salt", "Comic Sans MS", cursive';
+    g.fillStyle = "rgba(110,22,16,.9)"; g.fillText("ELES OUVEM", 16, -128);
+    g.fillStyle = "rgba(90,14,10,.8)";
+    [24, 58, 97, 131, 170, 202].forEach((u, i) => g.fillRect(u, -124, 2.5, 14 + (i * 11) % 28));
+    g.font = '15px "Rock Salt", cursive'; g.fillStyle = "rgba(96,18,12,.75)"; g.fillText("não durma", 196, -96);
+    // monitor do terminal
+    const u0 = (8 - 3.9) * 44;
+    g.fillStyle = "#1b2120"; g.fillRect(u0, -128, 80, 58);
+    g.fillStyle = "#3f4a45"; g.fillRect(u0, -128, 80, 3);
+    g.fillStyle = "#08130d"; g.fillRect(u0 + 6, -122, 68, 44);
+    g.fillStyle = "#12251a"; for (let r = 0; r < 6; r++) g.fillRect(u0 + 10, -116 + r * 7, 20 + hsh(r) * 40, 2);
+    // luz de alarme (base)
+    g.fillStyle = "#1f2422"; g.fillRect(292, -212, 34, 12);
+  });
+  // topo da parede
+  poly(g, [iso(0, 0, WH), iso(0, 8, WH), iso(-0.25, 8, WH), iso(-0.25, 0, WH)], COL.cap);
+
+  // ---- parede da direita (A)
+  poly(g, WALLA, COL.wallA);
+  onA(g, g => {
+    for (let u = 0; u <= 352; u += 44) { g.fillStyle = "#1f2c29"; g.fillRect(u - 1, -WH, 2, WH); }
+    g.fillStyle = "#223030"; g.fillRect(0, -34, 352, 34);
+    g.fillStyle = "#3a4b47"; g.fillRect(0, -36, 352, 3);
+    for (let k = 0; k < 12; k++) { const u = hsh(k + 170) * 340, len = 30 + hsh(k + 180) * 100; const gr = g.createLinearGradient(0, -200, 0, -200 + len); gr.addColorStop(0, "rgba(123,74,44,.5)"); gr.addColorStop(1, "rgba(123,74,44,0)"); g.fillStyle = gr; g.fillRect(u, -205, 5 + hsh(k) * 10, len); }
+    g.fillStyle = "#171d1b"; g.fillRect(0, -200, 352, 12); g.fillStyle = "#4d5852"; g.fillRect(0, -200, 352, 2);
+    // duto
+    g.fillStyle = "#141a18"; g.fillRect(112, -192, 48, 30);
+    g.fillStyle = "#050706"; g.fillRect(116, -188, 40, 22);
+    for (let u = 118; u < 156; u += 6) { g.fillStyle = "#2c3431"; g.fillRect(u, -188, 3, 22); }
+    g.fillStyle = "#3a2a1c"; g.fillRect(128, -167, 10, 6);
+    // porta
+    g.fillStyle = "#151b19"; g.fillRect(188, -160, 108, 160);
+    g.fillStyle = "#3b4540"; g.fillRect(188, -160, 108, 4);
+    if (f.doorOpen) {
+      g.fillStyle = "#030404"; g.fillRect(196, -152, 92, 152);
+      const gr = g.createLinearGradient(0, -152, 0, 0); gr.addColorStop(0, "rgba(40,70,60,.0)"); gr.addColorStop(1, "rgba(60,90,80,.35)"); g.fillStyle = gr; g.fillRect(196, -152, 92, 152);
+    } else {
+      for (const lx of [196, 242]) {
+        g.fillStyle = "#4b534d"; g.fillRect(lx, -152, 46, 152);
+        g.fillStyle = "#5f6861"; g.fillRect(lx, -152, 46, 3);
+        g.fillStyle = "#3d443f"; g.fillRect(lx + 6, -140, 34, 50);
+        g.fillStyle = "#2b312d"; g.fillRect(lx + 8, -80, 30, 3);
+        for (let r = 0; r < 18; r++) for (let k = -18; k < 46; k += 12) { const xx = k + r; if (xx >= 0 && xx < 40) { g.fillStyle = COL.hazard; g.fillRect(lx + xx, -18 + r, 6, 1); } }
+        g.fillStyle = "#101312"; g.fillRect(lx, -19, 46, 1);
+      }
+      g.fillStyle = "#101312"; g.fillRect(241, -152, 2, 152);
+      g.font = '600 22px "Barlow Condensed", Arial'; g.fillStyle = "rgba(20,24,22,.7)"; g.fillText("C-03", 222, -104);
+      // mão ensanguentada na porta
+      g.fillStyle = "rgba(92,16,11,.75)"; g.fillRect(208, -70, 12, 12); for (let k = 0; k < 4; k++) g.fillRect(208 + k * 3, -84 + (k % 2) * 3, 2.5, 13);
+      g.fillRect(212, -58, 2, 30);
+    }
+    // teclado
+    g.fillStyle = "#101413"; g.fillRect(302, -118, 26, 50);
+    g.fillStyle = "#2e3532"; g.fillRect(304, -116, 22, 46);
+    g.fillStyle = "#0a1a10"; g.fillRect(307, -112, 16, 8);
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) { g.fillStyle = "#6d756f"; g.fillRect(307 + i * 6, -100 + j * 7, 4, 4); }
+  });
+  poly(g, [iso(0, 0, WH), iso(8, 0, WH), iso(8, -0.25, WH), iso(0, -0.25, WH)], COL.cap);
+  poly(g, [iso(0, 0, WH), iso(-0.25, 0, WH), iso(-0.25, -0.25, WH), iso(0, -0.25, WH)], COL.cap);
+  poly(g, [iso(0, 0, 0), iso(0, 0, WH)], null, "#121716", 2);
+
+  // ---- mesa do terminal
+  box(g, 0, 2.0, 0, 0.95, 2.0, 52, "#4c534e", "#3a403c", "#2c312e");
+  box(g, 0.08, 2.1, 52, 0.7, 0.5, 8, "#262b28", "#1d211f", "#171a18");
+  poly(g, [iso(0.4, 2.9, 52), iso(0.9, 2.95, 20), iso(1.0, 3.3, 0)], null, "#161a18", 3);
+  // armário
+  box(g, 0.9, 0, 0, 1.1, 0.7, 158, "#3e4843", "#48534d", "#333b37");
+  if (f.lockerOpen) {
+    poly(g, [iso(0.95, 0.7, 6), iso(1.95, 0.7, 6), iso(1.95, 0.7, 152), iso(0.95, 0.7, 152)], "#0a0c0b");
+    poly(g, [iso(0.95, 0.7, 6), iso(0.95, 1.6, 6), iso(0.95, 1.6, 152), iso(0.95, 0.7, 152)], "#56625b", "#2a302c", 2);
+    // corpo caído do armário
+    box(g, 1.2, 1.0, 0, 0.5, 1.3, 14, "#3a3a30", "#2e2e26", "#26261f");
+    isoEllipse(g, 1.45, 2.5, 13, "#8f8676");
+    isoEllipse(g, 1.5, 2.1, 30, COL.blood, 0.6);
+  } else {
+    poly(g, [iso(1.0, 0.7, 10), iso(1.9, 0.7, 10), iso(1.9, 0.7, 148), iso(1.0, 0.7, 148)], null, "#2c3531", 2);
+    for (let k = 0; k < 4; k++) { const [a, b] = [iso(1.15 + k * 0.08, 0.7, 128), iso(1.15 + k * 0.08, 0.7, 118)]; poly(g, [a, b], null, "#262e2a", 2); }
+    poly(g, [iso(1.75, 0.7, 70), iso(1.75, 0.7, 88)], null, "#8c948d", 3);
+  }
+  // caixas no canto
+  box(g, 0.05, 6.4, 0, 0.9, 1.2, 46, "#6a5236", "#5a4430", "#46351f");
+  box(g, 0.1, 6.6, 46, 0.7, 0.8, 34, "#735a3c", "#624a32", "#4e3b25");
+  poly(g, [iso(0.05, 7.0, 0), iso(0.95, 7.0, 0), iso(0.95, 7.0, 46), iso(0.05, 7.0, 46)], null, "rgba(20,14,8,.5)", 2);
+
+  // ---- corpo do engenheiro
+  isoEllipse(g, 6.0, 5.3, 40, "#0f0f0d", 0.4);
+  box(g, 5.2, 5.05, 0, 1.25, 0.55, 16, "#4a4a3a", "#3c3c30", "#303026");
+  box(g, 4.4, 5.1, 0, 0.8, 0.22, 11, "#34342a", "#2b2b23", "#23231c");
+  box(g, 4.4, 5.38, 0, 0.8, 0.22, 11, "#34342a", "#2b2b23", "#23231c");
+  box(g, 5.4, 5.6, 0, 0.6, 0.18, 9, "#3c3c30", "#303026", "#282820");
+  const [hx, hy] = iso(6.75, 5.3, 12);
+  g.fillStyle = "#3a3f3d"; g.beginPath(); g.ellipse(hx, hy, 15, 12, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#1b1e1d"; g.beginPath(); g.ellipse(hx + 4, hy + 2, 8, 6, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#5fd0dc"; const [sx2, sy2] = iso(5.8, 5.05, 16); g.fillRect(sx2 - 12, sy2 - 2, 3, 3);
+
+  // ---- cabos pendurados
+  g.lineCap = "round";
+  [[iso(2.4, 0, WH - 12), iso(4.2, 0, WH - 10), 80], [iso(0, 4.5, WH - 14), iso(0, 6.1, WH - 14), 64], [iso(6.2, 0, WH - 8), iso(7.8, 0, WH - 12), 50]].forEach(([a, b, sag]) => {
+    g.strokeStyle = "#0e1110"; g.lineWidth = 4; g.beginPath(); g.moveTo(a[0], a[1]); g.quadraticCurveTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + sag, b[0], b[1]); g.stroke();
+  });
+  const [cx0, cy0] = iso(3.1, 0, WH - 12); g.strokeStyle = "#101312"; g.lineWidth = 3; g.beginPath(); g.moveTo(cx0, cy0); g.bezierCurveTo(cx0 + 10, cy0 + 60, cx0 - 20, cy0 + 90, cx0 + 6, cy0 + 120); g.stroke();
+
+  // ---- luz pintada (antes das pinceladas, para virar tinta)
+  g.save();
+  g.globalCompositeOperation = "soft-light";
+  const pool = g.createRadialGradient(...iso(4.2, 3.6, 0), 10, ...iso(4.2, 3.6, 0), 330);
+  pool.addColorStop(0, "rgba(220,235,215,.85)"); pool.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = pool; g.fillRect(0, 0, CW, CH);
+  g.globalCompositeOperation = "multiply";
+  const dk = g.createLinearGradient(0, 200, 0, 720); dk.addColorStop(0, "rgba(255,255,255,1)"); dk.addColorStop(1, "rgba(95,105,100,1)");
+  g.fillStyle = dk; g.fillRect(0, 0, CW, CH);
+  g.globalCompositeOperation = "screen";
+  const red = g.createRadialGradient(...wB(309, 205), 5, ...wB(309, 205), 260);
+  red.addColorStop(0, "rgba(160,40,30,.55)"); red.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = red; g.fillRect(0, 0, CW, CH);
+  g.restore();
+}
+function bakeRoom(f) {
+  const flat = mk(CW, CH); drawRoom(flat.getContext("2d"), f);
+  let p = paint(flat, { n: 52000, minL: 5, maxL: 15, w0: 2, w1: 5, dir: sceneDir, alpha: 0.5, jit: 18 });
+  p = paint(p, { n: 26000, minL: 2, maxL: 6, w0: 1, w1: 2.5, dir: sceneDir, alpha: 0.45, jit: 22 });
+  const g = p.getContext("2d");
+  g.save(); g.globalAlpha = 0.07; g.globalCompositeOperation = "overlay"; g.fillStyle = g.createPattern(grainTile(), "repeat"); g.fillRect(0, 0, CW, CH); g.restore();
+  return p;
+}
+
+/* =========================================================
+   PERSONAGEM — sobretudo ocre, rosto cansado, faixa azul nas costas
+   ========================================================= */
+const SPR_W = 70, SPR_H = 112, FOOT = [35, 106];
+function drawBody(g, back, phase) {
+  const sw = [0, 4, 0, -4][phase], lift = [0, 3, 0, -3][phase];
+  g.fillStyle = "#1f1c19";
+  g.fillRect(27, 70, 7, 36 - Math.max(0, lift)); g.fillRect(36, 70, 7, 36 - Math.max(0, -lift));
+  g.fillStyle = "#121110"; g.fillRect(25, 101 - Math.max(0, lift), 10, 5); g.fillRect(35, 101 - Math.max(0, -lift), 10, 5);
+  // braços atrás do casaco
+  g.fillStyle = "#6f4a1d";
+  poly(g, [[18, 34], [24, 34], [22 + sw, 68], [15 + sw, 68]], "#6f4a1d");
+  poly(g, [[46, 34], [52, 34], [55 - sw, 68], [48 - sw, 68]], "#5e3e18");
+  g.fillStyle = "#b99a7c"; g.beginPath(); g.ellipse(18.5 + sw, 70, 3.5, 4, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(51.5 - sw, 70, 3.5, 4, 0, 0, 7); g.fill();
+  // sobretudo
+  poly(g, [[21, 30], [49, 30], [54, 84], [16, 84]], "#9c6a2a");
+  poly(g, [[37, 30], [49, 30], [54, 84], [39, 84]], "#7a5020");
+  for (let k = 0; k < 6; k++) { g.fillStyle = "#6a451b"; g.fillRect(18 + k * 6, 82 + (k % 2) * 2, 3, 3); }
+  if (!back) {
+    poly(g, [[32, 34], [38, 34], [39, 84], [32, 84]], "#2a2320");
+    poly(g, [[27, 30], [33, 30], [31, 52]], "#b98a45");
+    poly(g, [[37, 30], [43, 30], [39, 52]], "#8f6428");
+    g.fillStyle = "#3f2f22"; g.fillRect(29, 60, 3, 2); g.fillRect(40, 60, 3, 2);
+  } else {
+    g.fillStyle = "#6f4a1d"; g.fillRect(34, 32, 2, 52);
+    for (let k = 0; k < 4; k++) { g.fillStyle = "#1b2a2c"; g.fillRect(33, 38 + k * 7, 4, 5); g.fillStyle = "#6fe1ef"; g.fillRect(34, 39 + k * 7, 2, 3); }
+  }
+  // gola e pescoço
+  g.fillStyle = "#3a2f28"; g.fillRect(29, 24, 12, 9);
+  poly(g, [[24, 28], [46, 28], [44, 34], [26, 34]], "#865a22");
+  // cabeça
+  g.fillStyle = back ? "#231d1a" : "#c6a887";
+  g.beginPath(); g.ellipse(35, 16, 8, 9.5, 0, 0, 7); g.fill();
+  if (!back) {
+    g.fillStyle = "#a6886a"; g.beginPath(); g.ellipse(39, 17, 4, 8, 0, 0, 7); g.fill();
+    g.fillStyle = "#231d1a"; g.beginPath(); g.ellipse(35, 10, 9, 5.5, -0.15, 0, 7); g.fill();
+    g.fillRect(27, 9, 3, 9); g.fillRect(41, 9, 2.5, 6);
+    g.fillStyle = "#8c6c5c"; g.fillRect(30, 18, 4, 2); g.fillRect(37, 18, 4, 2);
+    g.fillStyle = "#1c1512"; g.fillRect(31, 16, 2.5, 2); g.fillRect(38, 16, 2.5, 2);
+    g.fillStyle = "#7d5a4a"; g.fillRect(33, 23, 5, 1.2);
+  } else {
+    g.fillStyle = "#171311"; g.beginPath(); g.ellipse(35, 14, 9, 8, 0, 0, 7); g.fill();
+  }
+}
+function bakeSprites() {
+  const set = { front: [], back: [] };
+  for (const kind of ["front", "back"]) for (let p = 0; p < 4; p++) {
+    const c = mk(SPR_W, SPR_H); drawBody(c.getContext("2d"), kind === "back", p);
+    set[kind].push(paint(c, { n: 1400, minL: 2, maxL: 5, w0: 1, w1: 2, atop: true, alpha: 0.6, jit: 26, dir: () => Math.PI / 2 + (Math.random() - 0.5) * 0.9 }));
+  }
+  return set;
+}
+function bakePortrait() {
+  const c = mk(110, 130), g = c.getContext("2d");
+  const bg = g.createLinearGradient(0, 0, 0, 130); bg.addColorStop(0, "#1f2b28"); bg.addColorStop(1, "#0b0f0e");
+  g.fillStyle = bg; g.fillRect(0, 0, 110, 130);
+  poly(g, [[10, 130], [22, 96], [88, 96], [100, 130]], "#8f6127");
+  poly(g, [[55, 96], [88, 96], [100, 130], [58, 130]], "#6e4a1c");
+  poly(g, [[44, 96], [66, 96], [60, 130], [50, 130]], "#2a2320");
+  g.fillStyle = "#b99b7b"; g.fillRect(46, 80, 18, 18);
+  g.fillStyle = "#c9ab8a"; g.beginPath(); g.ellipse(55, 58, 24, 30, 0, 0, 7); g.fill();
+  g.fillStyle = "#a3846a"; g.beginPath(); g.ellipse(66, 62, 12, 25, 0, 0, 7); g.fill();
+  g.fillStyle = "#211b18"; g.beginPath(); g.ellipse(53, 36, 27, 15, -0.1, 0, 7); g.fill(); g.fillRect(29, 34, 8, 30); g.fillRect(72, 34, 6, 18);
+  g.fillStyle = "#86675a"; g.fillRect(40, 60, 11, 5); g.fillRect(59, 60, 11, 5);
+  g.fillStyle = "#e6ded0"; g.fillRect(42, 55, 8, 4); g.fillRect(61, 55, 8, 4);
+  g.fillStyle = "#231a14"; g.fillRect(45, 55, 4, 4); g.fillRect(64, 55, 4, 4);
+  g.fillStyle = "#6e4f40"; g.fillRect(47, 76, 16, 2.5);
+  g.fillStyle = "#7c2a20"; g.fillRect(34, 66, 4, 2);
+  return paint(c, { n: 3200, minL: 2, maxL: 6, w0: 1, w1: 2.4, alpha: 0.6, jit: 24 });
+}
+function bakeScare() {
+  const c = mk(CW, CH), g = c.getContext("2d");
+  const bg = g.createRadialGradient(640, 360, 40, 640, 360, 700); bg.addColorStop(0, "#3a120c"); bg.addColorStop(1, "#000");
+  g.fillStyle = bg; g.fillRect(0, 0, CW, CH);
+  g.fillStyle = "#b3a792"; g.beginPath(); g.ellipse(640, 390, 200, 270, 0, 0, 7); g.fill();
+  g.fillStyle = "#8a7e6a"; g.beginPath(); g.ellipse(720, 420, 90, 240, 0, 0, 7); g.fill();
+  g.fillStyle = "#050303"; g.beginPath(); g.ellipse(560, 320, 52, 66, 0.1, 0, 7); g.fill(); g.beginPath(); g.ellipse(720, 320, 52, 66, -0.1, 0, 7); g.fill();
+  g.fillStyle = "#e0b43a"; g.fillRect(556, 316, 7, 7); g.fillRect(716, 316, 7, 7);
+  g.fillStyle = "#1a0503"; g.beginPath(); g.ellipse(640, 545, 80, 110, 0, 0, 7); g.fill();
+  g.fillStyle = "#d8cfbc"; for (let k = -70; k <= 60; k += 16) { g.fillRect(640 + k, 452, 9, 20); g.fillRect(640 + k + 5, 630, 9, 20); }
+  g.strokeStyle = "#4d2a22"; g.lineWidth = 3; for (let k = 0; k < 14; k++) { g.beginPath(); const x = 470 + hsh(k) * 340, y = 160 + hsh(k + 5) * 200; g.moveTo(x, y); g.lineTo(x + (hsh(k + 9) - 0.5) * 80, y + 60 + hsh(k + 2) * 80); g.stroke(); }
+  return paint(c, { n: 30000, minL: 8, maxL: 24, w0: 3, w1: 7, alpha: 0.6, jit: 24 });
+}
+const KP = { x: 250, y: 70, w: 420, h: 580 };
+const KEYS = ["1","2","3","4","5","6","7","8","9","C","0","OK"].map((k, i) => ({ k, x: KP.x + 48 + (i % 3) * 114, y: KP.y + 190 + (i / 3 | 0) * 92, w: 96, h: 76 }));
+function bakeKeypad() {
+  const c = mk(CW, CH), g = c.getContext("2d");
+  g.fillStyle = "#1c2422"; g.fillRect(KP.x - 20, KP.y - 20, KP.w + 40, KP.h + 40);
+  g.fillStyle = "#3f4944"; g.fillRect(KP.x, KP.y, KP.w, KP.h);
+  g.fillStyle = "#56615b"; g.fillRect(KP.x, KP.y, KP.w, 6);
+  for (const [bx, by] of [[14, 14], [KP.w - 22, 14], [14, KP.h - 22], [KP.w - 22, KP.h - 22]]) { g.fillStyle = "#232926"; g.beginPath(); g.arc(KP.x + bx + 4, KP.y + by + 4, 7, 0, 7); g.fill(); }
+  g.fillStyle = "#0b0f0d"; g.fillRect(KP.x + 40, KP.y + 50, KP.w - 80, 110);
+  g.fillStyle = "#07170e"; g.fillRect(KP.x + 50, KP.y + 60, KP.w - 100, 90);
+  for (const k of KEYS) {
+    g.fillStyle = "#1b201e"; g.fillRect(k.x + 3, k.y + 5, k.w, k.h);
+    g.fillStyle = k.k === "OK" ? "#3d5a3f" : k.k === "C" ? "#6a3a2e" : "#6d746d"; g.fillRect(k.x, k.y, k.w, k.h);
+    g.fillStyle = "rgba(255,255,255,.12)"; g.fillRect(k.x, k.y, k.w, 5);
+    g.font = '600 34px "Barlow Condensed", Arial'; g.textAlign = "center"; g.textBaseline = "middle"; g.fillStyle = "#e8e1d2"; g.fillText(k.k, k.x + k.w / 2, k.y + k.h / 2 + 2);
+  }
+  g.fillStyle = "rgba(92,16,11,.65)"; g.fillRect(KEYS[6].x + 20, KEYS[6].y + 16, 22, 26); g.fillRect(KEYS[1].x + 50, KEYS[1].y + 40, 14, 18);
+  g.strokeStyle = "rgba(60,40,30,.8)"; g.lineWidth = 2; for (let k = 0; k < 10; k++) { g.beginPath(); const x = KP.x + hsh(k + 40) * KP.w, y = KP.y + hsh(k + 41) * KP.h; g.moveTo(x, y); g.lineTo(x + 10, y + 30); g.stroke(); }
+  return paint(c, { n: 26000, minL: 4, maxL: 12, w0: 2, w1: 4, alpha: 0.5, jit: 16, dir: () => (Math.random() < 0.5 ? 0 : Math.PI / 2) + (Math.random() - 0.5) * 0.3 });
+}
+
+/* =========================================================
+   ENIGMA — código de 4 dígitos com solução única
+   ========================================================= */
+const POS = ["primeiro", "segundo", "terceiro", "quarto"];
+const ALLCODES = (() => { const o = []; for (let a = 0; a < 10; a++) for (let b = 0; b < 10; b++) for (let c = 0; c < 10; c++) for (let d = 0; d < 10; d++) if (new Set([a, b, c, d]).size === 4) o.push([a, b, c, d]); return o; })();
+function genPuzzle() {
+  for (let t = 0; t < 400; t++) {
+    const code = shuffle([0,1,2,3,4,5,6,7,8,9]).slice(0, 4), pool = [];
+    const sum = code.reduce((a, b) => a + b, 0);
+    pool.push({ t: `A soma dos quatro dígitos é ${sum}.`, f: c => c[0] + c[1] + c[2] + c[3] === sum });
+    for (let i = 0; i < 4; i++) {
+      const par = code[i] % 2 === 0;
+      pool.push({ t: `O ${POS[i]} dígito é ${par ? "par" : "ímpar"}.`, f: c => (c[i] % 2 === 0) === par });
+      if (code[i] % 3 === 0) pool.push({ t: `O ${POS[i]} dígito é múltiplo de 3.`, f: c => c[i] % 3 === 0 });
+      pool.push(code[i] >= 5 ? { t: `O ${POS[i]} dígito é maior que 4.`, f: c => c[i] >= 5 } : { t: `O ${POS[i]} dígito é menor que 5.`, f: c => c[i] < 5 });
+    }
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+      if (i === j) continue;
+      const d = code[i] - code[j];
+      if (i < j) pool.push({ t: `O ${POS[i]} dígito é ${d > 0 ? "maior" : "menor"} que o ${POS[j]}.`, f: c => (c[i] > c[j]) === (d > 0) });
+      if (d >= 2) pool.push({ t: `O ${POS[i]} dígito menos o ${POS[j]} dá ${d}.`, f: c => c[i] - c[j] === d });
+      if (i < j) { const s = code[i] + code[j]; pool.push({ t: `O ${POS[i]} e o ${POS[j]} dígitos somam ${s}.`, f: c => c[i] + c[j] === s }); }
+    }
+    const absent = shuffle([0,1,2,3,4,5,6,7,8,9].filter(d => !code.includes(d)));
+    for (let k = 0; k + 1 < absent.length; k += 2) { const a = absent[k], b = absent[k + 1]; pool.push({ t: `Não existe ${a} nem ${b} no código.`, f: c => !c.includes(a) && !c.includes(b) }); }
+    const mx = code.indexOf(Math.max(...code)), mn = code.indexOf(Math.min(...code));
+    pool.push({ t: `O maior dígito é o ${POS[mx]}.`, f: c => c.indexOf(Math.max(...c)) === mx });
+    pool.push({ t: `O menor dígito é o ${POS[mn]}.`, f: c => c.indexOf(Math.min(...c)) === mn });
+    shuffle(pool);
+    let cand = ALLCODES; const chosen = [];
+    for (const cl of pool) { const nx = cand.filter(cl.f); if (nx.length < cand.length) { chosen.push(cl); cand = nx; } if (cand.length === 1) break; }
+    if (cand.length !== 1 || chosen.length < 5 || chosen.length > 8) continue;
+    for (let k = chosen.length - 1; k >= 0 && chosen.length > 5; k--) { const rest = chosen.filter((_, x) => x !== k); if (ALLCODES.filter(c => rest.every(r => r.f(c))).length === 1) chosen.splice(k, 1); }
+    const SRC = ["writing", "terminal", "locker", "corpse"];
+    return { code, clues: shuffle(chosen).map((c, i) => ({ src: SRC[i % 4], t: c.t })) };
+  }
+}
+
+/* =========================================================
+   ÁUDIO — drones, metal e respiração (sem 8 bits)
+   ========================================================= */
+let AC = null, master = null, muted = false, noiseBuf = null, ambT = null;
+function initAudio() {
+  if (AC) { AC.resume(); return; }
+  const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+  AC = new C(); master = AC.createGain(); master.gain.value = 0.6; master.connect(AC.destination);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate * 3, AC.sampleRate);
+  const a = noiseBuf.getChannelData(0); let last = 0;
+  for (let i = 0; i < a.length; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; a[i] = w * 0.6 + last * 3; }
+}
+function tone(f, d, type = "sine", v = 0.1, w = 0, f2 = null, att = 0.01) {
+  if (!AC) return;
+  const t0 = AC.currentTime + w, o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t0); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + d);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + att); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+  o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + d + 0.05);
+}
+function noise(d, v = 0.1, ff = 1000, w = 0, ff2 = null, type = "lowpass", q = 1, att = 0.01) {
+  if (!AC) return;
+  const t0 = AC.currentTime + w, s = AC.createBufferSource(); s.buffer = noiseBuf;
+  const f = AC.createBiquadFilter(); f.type = type; f.Q.value = q; f.frequency.setValueAtTime(ff, t0); if (ff2) f.frequency.exponentialRampToValueAtTime(ff2, t0 + d);
+  const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(v, t0 + att); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t0, Math.random() * 2); s.stop(t0 + d + 0.05);
+}
+const SFX = {
+  step()   { noise(0.12, 0.08, 900 + Math.random() * 300, 0, 300, "bandpass", 3); tone(90, 0.08, "sine", 0.05); },
+  click()  { tone(880, 0.06, "sine", 0.05); },
+  hover()  { tone(1320, 0.03, "sine", 0.015); },
+  page()   { noise(0.25, 0.05, 3000, 0, 1500, "highpass"); },
+  key()    { tone(1150, 0.09, "sine", 0.09); tone(2300, 0.03, "sine", 0.02); },
+  deny()   { tone(196, 0.45, "triangle", 0.12); tone(185, 0.45, "triangle", 0.1); },
+  accept() { [392, 494, 587].forEach((f, i) => tone(f, 1.2, "sine", 0.07, i * 0.07, null, 0.05)); },
+  door()   { noise(2.2, 0.3, 200, 0, 1800, "lowpass", 1, 0.2); tone(55, 2, "sawtooth", 0.05, 0, 35, 0.1); },
+  bang()   { noise(0.6, 0.5, 300, 0, 60); tone(48, 0.6, "sine", 0.5, 0, 30); },
+  scare()  { noise(0.9, 0.7, 5000, 0, 400, "highpass", 1, 0.005); [740, 784, 831].forEach(f => tone(f, 1.1, "sawtooth", 0.05, 0, f * 0.7)); tone(60, 1.2, "sine", 0.5, 0, 30); },
+  alarm()  { for (let i = 0; i < 3; i++) { tone(620, 0.55, "triangle", 0.07, i * 1.1, 520, 0.1); tone(465, 0.55, "triangle", 0.07, i * 1.1 + 0.55, 390, 0.1); } },
+  whisper(){ noise(1.8, 0.07, 1400, 0, 700, "bandpass", 6, 0.4); },
+  heart()  { tone(55, 0.18, "sine", 0.45); tone(52, 0.2, "sine", 0.38, 0.28); },
+  rattle() { for (let i = 0; i < 7; i++) noise(0.05, 0.12, 2500 + Math.random() * 2000, i * 0.09, null, "bandpass", 4); },
+  hurt()   { noise(0.4, 0.3, 700, 0, 150); tone(140, 0.5, "sawtooth", 0.06, 0, 70); },
+  voice()  { tone(220, 0.35, "sine", 0.025, 0, 196, 0.1); },
+};
+function startAmbient() {
+  if (!AC || ambT) return;
+  const g = AC.createGain(); g.gain.value = 0.07;
+  const f = AC.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 220;
+  [41.2, 61.7, 41.5].forEach((fr, i) => { const o = AC.createOscillator(); o.type = i === 1 ? "triangle" : "sine"; o.frequency.value = fr; o.connect(f); o.start(); });
+  const lfo = AC.createOscillator(); lfo.frequency.value = 0.05; const lg = AC.createGain(); lg.gain.value = 120; lfo.connect(lg); lg.connect(f.frequency); lfo.start();
+  f.connect(g); g.connect(master);
+  const hs = AC.createBufferSource(); hs.buffer = noiseBuf; hs.loop = true;
+  const hf = AC.createBiquadFilter(); hf.type = "bandpass"; hf.frequency.value = 420; hf.Q.value = 0.7;
+  const hg = AC.createGain(); hg.gain.value = 0.025; hs.connect(hf); hf.connect(hg); hg.connect(master); hs.start();
+  const ev = () => {
+    if (S.mode !== "title" && !S.over) {
+      const r = Math.random();
+      if (r < 0.3) noise(1.6, 0.06, 500, 0, 180, "bandpass", 8, 0.3);
+      else if (r < 0.55) tone(62, 0.5, "sine", 0.3, 0, 40);
+      else if (r < 0.75) SFX.whisper();
+      else tone(310, 1.4, "sawtooth", 0.018, 0, 120, 0.2);
+    }
+    ambT = setTimeout(ev, 5000 + Math.random() * 7000);
+  };
+  ambT = setTimeout(ev, 4000);
+}
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+const S = { mode: "title", minutes: 60 };
+window.__cela = S;
+let RUN = 0;
+const STOP = { stop: true };
+const live = id => id === RUN;
+let ART = null;
+
+const VOICES = {
+  LOG: { n: "LÓGICA", c: "#86b6e6" },
+  PER: { n: "PERCEPÇÃO", c: "#e2c25e" },
+  TEC: { n: "TÉCNICA", c: "#e08d4a" },
+  VOL: { n: "VOLIÇÃO", c: "#b196e6" },
+  VAZ: { n: "O VAZIO", c: "#d7483b" },
+  SIS: { n: "SISTEMA DA NAVE", c: "#d7483b" },
+  YOU: { n: "VOCÊ", c: "#f3ecdc" },
+};
+const SKILLS = { LOG: 3, PER: 3, TEC: 2, VOL: 2 };
+const RANK = ["Desastre", "Fracasso", "Por um triz", "Sucesso", "Grande sucesso", "Extraordinário"];
+const ITEMS = { cortador: "Cortador de plasma" };
+
+function resetState() {
+  const pz = genPuzzle();
+  Object.assign(S, {
+    mode: "idle", over: false, timerOn: false, paused: false, timeLeft: S.minutes * 60000, warned: {},
+    hp: 3, mo: 3, inf: false, doses: 0, items: [],
+    code: pz.code, clues: pz.clues, notes: [], seen: new Set(), tried: [], wrong: 0, entry: "", kMsg: null, kLock: false,
+    flags: {}, pos: { x: 4.3, y: 4.3 }, target: null, arrive: null, facing: { back: false, flip: false }, walkPh: 0, stepAt: 0,
+    hover: null, pressed: null, pressedUntil: 0, hand: { x: 900, y: 800, tx: 900, ty: 800 },
+    shake: 0, flash: null, scareUntil: 0, fade: 1, bangT: -9999, doorT: 0, idleVoiceAt: 0,
+  });
+}
+
+/* =========================================================
+   PONTOS DE INTERESSE
+   ========================================================= */
+function bbox(pts, pad = 6) { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); return { x: Math.min(...xs) - pad, y: Math.min(...ys) - pad, w: Math.max(...xs) - Math.min(...xs) + pad * 2, h: Math.max(...ys) - Math.min(...ys) + pad * 2 }; }
+const HOT = {
+  writing:  { name: "Escrita na parede", label: "ESCRITA NA PAREDE", sub: "Letras ainda úmidas.", r: bbox([wB(12, 170), wB(260, 90)]), stand: [1.4, 5.4] },
+  terminal: { name: "Terminal", label: "TERMINAL", sub: "A tela pisca sozinha.", r: bbox([wB((8 - 3.95) * 44, 132), wB((8 - 2) * 44, 0), iso(0.95, 3.0, 52)]), stand: [1.5, 3.1] },
+  locker:   { name: "Armário de metal", label: "ARMÁRIO DE METAL", sub: "Tem algo pesado lá dentro.", r: bbox([iso(0.9, 0.7, 158), iso(2, 0, 158), iso(0.9, 0.7, 0), iso(2, 0.7, 0)]), stand: [1.5, 1.35] },
+  corpse:   { name: "Corpo do engenheiro", label: "CORPO DO ENGENHEIRO", sub: "Morto há pouco tempo. Talvez.", r: bbox([iso(4.4, 5.1), iso(7.0, 5.3, 20), iso(5.2, 5.8), iso(6.5, 5.6)]), stand: [5.2, 6.5] },
+  keypad:   { name: "Teclado da porta", label: "TECLADO DA PORTA", sub: "Quatro dígitos. Nenhuma dica.", r: bbox([wA(300, 120), wA(330, 66)], 10), stand: [7.0, 1.25] },
+  door:     { name: "Porta blindada C-03", label: "PORTA BLINDADA C-03", sub: "Do outro lado, silêncio. Silêncio demais.", r: bbox([wA(190, 160), wA(296, 0)], 0), stand: [5.4, 1.25] },
+  vent:     { name: "Duto de ventilação", label: "DUTO DE VENTILAÇÃO", sub: "A grade foi arranhada por dentro.", r: bbox([wA(112, 194), wA(160, 160)]), stand: [3.1, 1.25] },
+  beacon:   { name: "Luz de alarme", label: "LUZ DE ALARME", sub: "Gira sem parar.", r: bbox([wB(290, 222), wB(330, 196)], 10), stand: [1.4, 1.8] },
+};
+
+/* =========================================================
+   DIÁRIO (log) — frases, opções, testes de dado
+   ========================================================= */
+const logEl = $("logInner"), chEl = $("choices");
+function scrollLog() { logEl.scrollTop = logEl.scrollHeight; }
+function addEntry(o) {
+  [...logEl.querySelectorAll(".e:not(.old)")].forEach(e => e.classList.add("old"));
+  const p = document.createElement("p");
+  p.className = "e " + (o.cls || (o.v ? "" : "narr"));
+  if (o.v) { const V = VOICES[o.v]; p.innerHTML = `<span class="who" style="color:${V.c}">${V.n}</span> — ${esc(o.t)}`; }
+  else p.innerHTML = o.html || esc(o.t);
+  logEl.appendChild(p); scrollLog();
+  if (o.v && o.v !== "YOU" && o.v !== "SIS") SFX.voice(); else SFX.page();
+  if (o.sfx) SFX[o.sfx]();
+  if (o.fn) o.fn();
+}
+function cont() {
+  const id = RUN;
+  return new Promise(res => {
+    S.mode = "cont";
+    chEl.innerHTML = `<button class="cont" type="button">CONTINUAR</button>`;
+    const b = chEl.querySelector("button"); b.focus({ preventScroll: true });
+    S.contFn = () => { if (S.mode !== "cont") return; S.mode = "busy"; chEl.innerHTML = ""; SFX.click(); if (live(id)) res(); };
+    b.addEventListener("click", S.contFn);
+  });
+}
+async function say(list) { for (const o of list.filter(Boolean)) { addEntry(typeof o === "string" ? { t: o } : o); await cont(); } }
+function chkTag(skill, label) { const V = VOICES[skill]; return `<span class="chk" style="color:${V.c}">[${V.n} ${SKILLS[skill]} — ${label}]</span> `; }
+function options(list, prompt) {
+  const id = RUN;
+  return new Promise(res => {
+    S.mode = "opts";
+    chEl.innerHTML = "";
+    if (prompt) { const p = document.createElement("div"); p.className = "e sys"; p.textContent = prompt; chEl.appendChild(p); }
+    list.forEach((o, i) => {
+      const b = document.createElement("button");
+      b.className = "opt"; b.type = "button";
+      if (o.disabled) b.setAttribute("aria-disabled", "true");
+      b.innerHTML = `${i + 1}. ${o.check ? chkTag(o.check, o.diff || "Arriscado") : ""}${esc(o.t)}${o.cost ? ` <span class="cost">(${o.cost})</span>` : ""}`;
+      b.addEventListener("click", () => S.optFn(i));
+      b.addEventListener("mouseenter", () => { SFX.hover(); if (o.hot) S.hover = o.hot; });
+      b.addEventListener("mouseleave", () => { if (o.hot) S.hover = null; });
+      chEl.appendChild(b);
+    });
+    S.optList = list;
+    S.optFn = i => {
+      if (S.mode !== "opts" || !list[i] || list[i].disabled) return;
+      S.mode = "busy"; SFX.click(); chEl.innerHTML = ""; S.hover = null;
+      if (!list[i].silent) addEntry({ v: "YOU", t: list[i].echo || list[i].t, cls: "you" });
+      if (live(id)) res(i);
+    };
+  });
+}
+function roll(skill, extra = []) {
+  const id = RUN;
+  return new Promise(res => {
+    S.mode = "dice";
+    const mods = [];
+    const sb = SKILLS[skill] - 2; if (sb) mods.push({ l: VOICES[skill].n, v: sb });
+    extra.forEach(m => mods.push(m));
+    if (S.hp === 1) mods.push({ l: "Ferimento grave", v: -1 });
+    if (S.inf) mods.push({ l: "Infecção", v: -1 });
+    if (S.mo === 1) mods.push({ l: "À beira do pânico", v: -1 });
+    const mod = mods.reduce((a, m) => a + m.v, 0);
+    chEl.innerHTML = `
+      <div class="dicebox">
+        <div class="die" id="die">?</div>
+        <button class="cont" id="rollBtn" type="button">ROLAR O DADO</button>
+      </div>
+      <div class="phys">DADO FÍSICO: ${[1,2,3,4,5,6].map(n => `<button type="button" data-n="${n}">${n}</button>`).join("")}</div>
+      <div class="mods">${mods.length ? mods.map(m => `${esc(m.l)} ${m.v > 0 ? "+" : ""}${m.v}`).join(" · ") : "Sem modificadores"} · 1 é desastre, 6 é extraordinário</div>`;
+    const go = phys => {
+      if (S.mode !== "dice") return;
+      S.mode = "rolling";
+      const raw = phys || 1 + rnd(6), final = Math.max(1, Math.min(6, raw + mod));
+      const die = $("die"); die.classList.add("spin"); SFX.rattle();
+      chEl.querySelectorAll("button").forEach(b => b.disabled = true);
+      const iv = setInterval(() => { die.textContent = 1 + rnd(6); }, 70);
+      setTimeout(() => {
+        clearInterval(iv); die.classList.remove("spin"); die.textContent = raw;
+        const col = final <= 2 ? "#e07a64" : final >= 5 ? "#b5d68a" : "#ddd5c4";
+        addEntry({ html: `<span class="roll" style="color:${VOICES[skill].c}">${VOICES[skill].n}</span> <span class="roll" style="color:${col}">[${RANK[final - 1]}: dado ${raw}${mod ? ` ${mod > 0 ? "+" : "−"} ${Math.abs(mod)}` : ""} = ${final}]</span>`, cls: "sys" });
+        if (final === 1) { S.flash = { c: "#8a0000", a: 0.45 }; S.shake = 10; }
+        if (final === 6) S.flash = { c: "#f3ecdc", a: 0.25 };
+        setTimeout(() => { if (live(id)) res(final); }, 700);
+      }, 1100);
+    };
+    S.rollFn = go;
+    $("rollBtn").addEventListener("click", () => go());
+    chEl.querySelectorAll("[data-n]").forEach(b => b.addEventListener("click", () => go(+b.dataset.n)));
+    $("rollBtn").focus({ preventScroll: true });
+  });
+}
+
+/* ---------- efeitos ---------- */
+async function fx(o) {
+  const out = [];
+  if (o.hp) {
+    S.hp = Math.max(0, Math.min(3, S.hp + o.hp));
+    if (o.hp < 0) { SFX.hurt(); S.flash = { c: "#7a0000", a: 0.5 }; S.shake = 8; }
+    out.push({ t: `${o.hp < 0 ? "Saúde" : "Saúde recuperada"} ${o.hp > 0 ? "+" : "−"}${Math.abs(o.hp)}.`, cls: o.hp < 0 ? "sys bad" : "sys good" });
+  }
+  if (o.mo) { S.mo = Math.max(0, Math.min(3, S.mo + o.mo)); out.push({ t: `Moral ${o.mo > 0 ? "+" : "−"}${Math.abs(o.mo)}.`, cls: o.mo < 0 ? "sys bad" : "sys good" }); }
+  if (o.time) { S.timeLeft = Math.max(1, S.timeLeft + o.time * 60000); out.push({ t: `Reator: ${o.time} min.`, cls: "sys bad" }); }
+  if (o.inf && !S.inf) { S.inf = true; out.push({ t: "A mordida lateja. Uma linha escura sobe pelo seu pulso. INFECTADO: −1 nos dados.", cls: "sys bad" }); }
+  if (o.dose) { S.doses += o.dose; out.push({ t: "Você encontra uma dose de estabilizador.", cls: "sys good" }); }
+  if (o.item && !S.items.includes(o.item)) { S.items.push(o.item); out.push({ t: `Item: ${ITEMS[o.item]}.`, cls: "sys good" }); }
+  hud();
+  for (const e of out) addEntry(e);
+  if (out.length) await cont();
+  if (S.hp <= 0) { await endDeath(); throw STOP; }
+  if (S.mo <= 0) { await endCollapse(); throw STOP; }
+}
+function addClues(src) {
+  const list = S.clues.filter(c => c.src === src);
+  list.forEach(c => { if (!S.notes.includes(c.t)) S.notes.push(c.t); });
+  hud();
+  return list.map(c => ({ t: "“" + c.t + "”", cls: "clue" }));
+}
+
+/* =========================================================
+   MOVIMENTO
+   ========================================================= */
+function walkTo(x, y) {
+  x = Math.max(1.35, Math.min(7.5, x)); y = Math.max(1.2, Math.min(7.5, y));
+  if (x < 1.3 && y > 2 && y < 4.1) x = 1.3;
+  return new Promise(res => { S.target = { x, y }; S.arrive = res; });
+}
+function toIsoFloor(sx, sy) { const a = (sx - OX) / (TW / 2), b = (sy - OY) / (TH / 2); return { x: (a + b) / 2, y: (b - a) / 2 }; }
+function updateWalk(dt) {
+  if (!S.target) return;
+  const dx = S.target.x - S.pos.x, dy = S.target.y - S.pos.y, dist = Math.hypot(dx, dy);
+  const sp = 2.3 * dt / 1000;
+  if (dist <= sp) { S.pos.x = S.target.x; S.pos.y = S.target.y; S.target = null; S.walkPh = 0; const r = S.arrive; S.arrive = null; r && r(); return; }
+  S.pos.x += dx / dist * sp; S.pos.y += dy / dist * sp;
+  const svx = (dx - dy), svy = (dx + dy);
+  S.facing.back = svy < -0.15 * Math.abs(svx);
+  S.facing.flip = S.facing.back ? svx > 0 : svx < 0;
+  S.walkPh += dt;
+  if (T > S.stepAt) { SFX.step(); S.stepAt = T + 330; }
+}
+function faceHot(h) {
+  const cx = h.r.x + h.r.w / 2, cy = h.r.y + h.r.h / 2;
+  const [px, py] = iso(S.pos.x, S.pos.y);
+  S.facing.back = cy < py - 10; S.facing.flip = S.facing.back ? cx > px : cx < px;
+}
+
+/* =========================================================
+   CENA 1
+   ========================================================= */
+async function intro() {
+  await say([
+    "Escuridão. Um zumbido grave atravessa o metal e os seus ossos.",
+    { v: "VOL", t: "Levante. Agora. Antes que o chão decida que você faz parte dele." },
+    "Você acorda no piso gelado de uma cela de contenção. A cabeça lateja. Ninguém mais está acordado aqui. Ninguém mais está vivo aqui.",
+    { v: "PER", t: "Suas unhas estão quebradas. Há algo vermelho embaixo delas. Não é tinta." },
+    { v: "SIS", t: `ALERTA: NÚCLEO DO REATOR INSTÁVEL. DETONAÇÃO EM ${S.minutes} MINUTOS.`, cls: "alarm", sfx: "alarm", fn: () => { S.timerOn = true; } },
+    { v: "LOG", t: "Uma porta. Um teclado. Quatro dígitos. Alguém trancou você aqui e deixou pistas, por descuido ou por crueldade." },
+    { v: "VAZ", t: "Fique. Aqui dentro é quentinho. Aqui ninguém precisa sair." },
+    { t: "Clique no chão para andar. Clique nos objetos para examinar. O teclado não diz se você está perto do código.", cls: "sys" },
+  ]);
+}
+function exploreChoice() {
+  const id = RUN;
+  return new Promise(res => {
+    S.mode = "explore";
+    const found = S.notes.length;
+    chEl.innerHTML = `<div class="e sys">Pistas no diário: ${found}/${S.clues.length}. O que você examina?</div>`;
+    const list = ["keypad", "writing", "terminal", "locker", "corpse", "vent", "door", "beacon"];
+    list.forEach((k, i) => {
+      const b = document.createElement("button"); b.className = "opt"; b.type = "button";
+      b.innerHTML = `${i + 1}. ${esc(HOT[k].name)}${S.seen.has(k) ? ' <span class="cost">(visto)</span>' : ""}`;
+      b.addEventListener("click", () => S.hotFn(k));
+      b.addEventListener("mouseenter", () => { S.hover = HOT[k]; SFX.hover(); });
+      b.addEventListener("mouseleave", () => { S.hover = null; });
+      chEl.appendChild(b);
+    });
+    if (S.doses && S.hp < 3) {
+      const b = document.createElement("button"); b.className = "opt"; b.type = "button";
+      b.innerHTML = `${list.length + 1}. Injetar a dose de estabilizador <span class="cost">(+1 saúde)</span>`;
+      b.addEventListener("click", () => S.hotFn("dose"));
+      chEl.appendChild(b);
+    }
+    S.exploreList = list;
+    S.hotFn = async k => {
+      if (S.mode !== "explore") return;
+      S.mode = "walking"; SFX.click(); chEl.innerHTML = ""; S.hover = null;
+      if (k !== "dose") { await walkTo(...HOT[k].stand); faceHot(HOT[k]); }
+      if (live(id)) res(k);
+    };
+  });
+}
+
+const CLUE_INTRO = {
+  writing: "Mais abaixo, em letras menores, alguém continuou escrevendo:",
+  terminal: "Registro do engenheiro-chefe, corrompido:",
+  locker: "Por dentro da porta do armário, riscos fundos formam frases:",
+  corpse: "No verso do crachá, a letra tremida:",
+};
+async function interact(k) {
+  const again = S.seen.has(k);
+  if (k === "dose") { S.doses--; addEntry({ t: "A agulha entra fundo. O frio sobe pelo braço e, por um instante, a dor some." }); await fx({ hp: 1 }); return; }
+  if (k === "keypad") return keypadMenu();
+  if (["writing", "terminal", "locker", "corpse"].includes(k) && again) {
+    await say([{ t: CLUE_INTRO[k], cls: "sys" }, ...addClues(k)]);
+    return;
+  }
+  S.seen.add(k);
+  if (k === "writing") {
+    await say([
+      "Letras de sangue na parede, ainda úmidas: ELES OUVEM. Embaixo, menor: não durma.",
+      { v: "PER", t: "A letra fica mais tremida no fim. Quem escreveu estava com pressa. Ou com medo." },
+      { t: CLUE_INTRO.writing, cls: "sys" }, ...addClues("writing"),
+      { v: "LOG", t: "Anote. Uma pista sozinha não abre porta nenhuma. Juntas, talvez." },
+    ]);
+  } else if (k === "terminal") {
+    await say([
+      { v: "TEC", t: "Terminais desta série só precisam de uma pancada no canto de cima. Com vontade." },
+      "Você bate. A tela acende, tremendo, e engole um minuto inteiro reiniciando.",
+    ]);
+    await fx({ time: -1 });
+    await say([{ t: CLUE_INTRO.terminal, cls: "sys" }, ...addClues("terminal"), { v: "VAZ", t: "Ele digitou até os dedos sangrarem. Olhe as teclas." }]);
+  } else if (k === "locker") {
+    await say(["Você força a porta do armário. O metal geme. Leva um minuto."]);
+    await fx({ time: -1 });
+    S.flags.lockerOpen = true;
+    ART.room = bakeRoom(S.flags);
+    S.scareUntil = T + 220; S.shake = 16; SFX.scare();
+    await say([{ t: "A porta cede e um corpo desaba em cima de você. Não tem rosto. Só um sorriso onde o rosto deveria estar.", cls: "bad" }]);
+    const r = await roll("VOL");
+    if (r <= 2) { await say([{ v: "VOL", t: "Você grita. Não consegue parar de gritar. Alguma coisa lá fora escuta." }]); await fx({ mo: -1 }); }
+    else if (r >= 6) { await say([{ v: "VOL", t: "Você empurra o corpo de lado. É só carne. Você já viu carne antes." }]); await fx({ mo: 1 }); }
+    else await say([{ v: "VOL", t: "Respire. É só um corpo. Os vivos é que deveriam preocupar você." }]);
+    await say([{ t: CLUE_INTRO.locker, cls: "sys" }, ...addClues("locker")]);
+  } else if (k === "corpse") {
+    await say([
+      "O engenheiro está de bruços, o capacete rachado. A luz azul da coluna do traje ainda pisca, fraca.",
+      { v: "PER", t: "Tem um crachá preso na luva dele. Para pegar, você vai ter que tocar nele." },
+    ]);
+    const i = await options([{ t: "Revistar o corpo.", check: "PER", diff: "Arriscado" }, { t: "Deixar para depois." }]);
+    if (i === 1) { S.seen.delete(k); return; }
+    const r = await roll("PER");
+    const res = [
+      [{ t: "Os dedos do morto se fecham no seu pulso. Os dentes vêm logo depois.", cls: "bad", fn: () => { S.scareUntil = T + 160; SFX.scare(); } }, { hp: -1, inf: true }],
+      [{ t: "Uma costela quebrada rasga a sua luva. O sangue é seu.", cls: "bad" }, { hp: -1 }],
+      [{ v: "VAZ", t: "Ele ainda está quente. Por que ainda está quente?" }, { mo: -1 }],
+      [{ v: "PER", t: "Você revista com cuidado. Nada se mexe." }, {}],
+      [{ v: "PER", t: "No bolso do peito, uma dose de estabilizador intacta." }, { dose: 1 }],
+      [{ v: "TEC", t: "No cinto, um cortador de plasma carregado. Isso abre painéis. E outras coisas." }, { item: "cortador" }],
+    ][r - 1];
+    await say([res[0]]);
+    await fx(res[1]);
+    await say([{ t: CLUE_INTRO.corpse, cls: "sys" }, ...addClues("corpse")]);
+  } else if (k === "vent") {
+    await say([
+      "A grade do duto está arranhada por dentro. Os arranhões são recentes.",
+      { v: "VAZ", t: "Tem alguém aí dentro que sabe o seu nome.", sfx: "whisper" },
+      { v: "LOG", t: "Estreito demais para passar. Para você, pelo menos." },
+    ]);
+  } else if (k === "door") {
+    S.bangT = T; SFX.bang(); S.shake = 6;
+    await say([
+      "Porta blindada C-03. Você encosta o ouvido no metal.",
+      { t: "Alguma coisa bate do outro lado. Uma vez. Depois, silêncio.", cls: "bad" },
+      { v: "LOG", t: "Ou seja: sair também não é seguro. Mas ficar é certeza de morte." },
+    ]);
+  } else if (k === "beacon") {
+    await say([
+      "A luz de alarme gira. A cada volta, a cela parece um pouco menor.",
+      { v: "VOL", t: "Pare de contar as voltas. Conte os minutos." },
+    ]);
+  }
+}
+async function keypadMenu() {
+  const i = await options([
+    { t: "Digitar um código.", hot: HOT.keypad },
+    { t: "Arrancar o painel e fazer ligação direta.", check: "TEC", diff: "Difícil", cost: "−2 min" },
+    { t: "Afastar-se do teclado." },
+  ]);
+  if (i === 0) {
+    const ok = await keypad();
+    if (ok) S.flags.solved = true;
+    if (S.mo <= 0) { await endCollapse(); throw STOP; }
+    return;
+  }
+  if (i === 1) {
+    await fx({ time: -2 });
+    const r = await roll("TEC", S.items.includes("cortador") ? [{ l: "Cortador de plasma", v: 1 }] : []);
+    const res = [
+      [{ t: "Uma descarga atravessa o seu corpo. O cheiro de carne queimada é seu.", cls: "bad" }, { hp: -2 }],
+      [{ t: "Faíscas. Uma sirene. Algo responde batendo do outro lado da porta.", cls: "bad", fn: () => { S.bangT = T; SFX.bang(); } }, { hp: -1, mo: -1 }],
+      [{ v: "TEC", t: "Fios demais. Nenhum parece o certo." }, {}],
+      [{ v: "TEC", t: "Quase. A trava estala... e volta. Mais uma tentativa talvez resolva." }, {}],
+      [{ v: "TEC", t: "A trava magnética cede com um estalo seco." }, {}],
+      [{ v: "TEC", t: "Ligação feita de primeira. Você nem precisou olhar." }, { mo: 1 }],
+    ][r - 1];
+    await say([res[0]]);
+    await fx(res[1]);
+    if (r >= 5) S.flags.solved = true;
+  }
+}
+function keypad() {
+  const id = RUN;
+  return new Promise(res => {
+    S.mode = "keypad"; S.entry = ""; S.kMsg = null; S.kLock = false;
+    S.hand.x = S.hand.tx = 900; S.hand.y = S.hand.ty = 820;
+    chEl.innerHTML = `
+      <div class="e sys">PISTAS NO DIÁRIO</div>
+      ${S.notes.length ? S.notes.map(n => `<div class="e clue">“${esc(n)}”</div>`).join("") : `<div class="e sys">Nenhuma ainda.</div>`}
+      <div class="mods">Clique nas teclas ou use 0–9, ENTER e BACKSPACE. Cada erro custa 1 minuto.</div>
+      <button class="cont" id="kBack" type="button">AFASTAR-SE</button>`;
+    $("kBack").addEventListener("click", () => S.kDone(false));
+    S.kDone = ok => {
+      if (S.mode !== "keypad") return;
+      S.mode = "busy"; chEl.innerHTML = "";
+      if (live(id)) res(ok);
+    };
+  });
+}
+function pressKey(k) {
+  if (S.mode !== "keypad" || S.kLock) return;
+  const key = KEYS.find(q => q.k === k); if (!key) return;
+  S.hand.tx = key.x + key.w / 2; S.hand.ty = key.y + key.h / 2 + 10;
+  S.pressed = k; S.pressedUntil = T + 170; S.kMsg = null;
+  if (k === "C") { S.entry = ""; SFX.key(); return; }
+  if (k === "OK") { if (S.entry.length < 4) { SFX.deny(); return; } SFX.key(); submit(); return; }
+  if (S.entry.length < 4) { S.entry += k; SFX.key(); } else SFX.deny();
+}
+function submit() {
+  const g = S.entry.split("").map(Number);
+  if (g.every((d, i) => d === S.code[i])) {
+    S.kLock = true; S.kMsg = "ok"; SFX.accept();
+    addEntry({ t: `Você digita ${S.entry}. O visor fica verde: LIBERADO.`, cls: "good" });
+    setTimeout(() => S.kDone(true), 1400);
+    return;
+  }
+  S.kLock = true; S.kMsg = "err"; SFX.deny(); S.shake = 4;
+  S.tried.push(S.entry); S.wrong++;
+  S.timeLeft = Math.max(1, S.timeLeft - 60000);
+  addEntry({ t: `${S.entry}: NEGADO. Reator −1 min.`, cls: "sys bad" });
+  if (S.wrong % 3 === 0) {
+    setTimeout(() => {
+      SFX.bang(); S.bangT = T; S.shake = 12;
+      addEntry({ v: "VAZ", t: "Alguma coisa ouviu os bipes. Está batendo do outro lado da porta. Moral −1.", cls: "" });
+      S.mo = Math.max(0, S.mo - 1); hud();
+      if (S.mo <= 0) { S.kDone(false); }
+    }, 500);
+  }
+  setTimeout(() => { S.entry = ""; S.kMsg = null; S.kLock = false; }, 900);
+}
+async function openDoor() {
+  S.mode = "busy"; S.kMsg = null;
+  ART.roomOld = ART.room;
+  S.flags.doorOpen = true;
+  ART.room = bakeRoom(S.flags);
+  S.doorT = performance.now(); SFX.door();
+  await new Promise(r => setTimeout(r, 2000));
+  await say([
+    "A porta se abre com um chiado longo. O ar do corredor é quente e úmido. Não deveria ser.",
+    { v: "VAZ", t: "Você pode ir. Mas vai voltar. Todos voltam." },
+  ]);
+  await walkTo(5.4, 1.2);
+  S.facing.back = true;
+  await new Promise(r => setTimeout(r, 300));
+  S.fadeOut = true;
+  await new Promise(r => setTimeout(r, 1400));
+  endWin();
+}
+
+/* =========================================================
+   FINAIS
+   ========================================================= */
+function summaryHTML(title, good) {
+  const s = Math.max(0, Math.ceil(S.timeLeft / 1000));
+  return `
+    <div class="e ${good ? "good" : "bad"}" style="font-family:var(--cond);font-weight:700;letter-spacing:.1em;font-size:18px">${title}</div>
+    <div class="e sys">Tempo restante: ${String(s / 60 | 0).padStart(2, "0")}:${String(s % 60).padStart(2, "0")} · Saúde ${S.hp}/3 · Moral ${S.mo}/3 · Códigos negados: ${S.wrong} · Pistas: ${S.notes.length}/${S.clues.length}</div>
+    <div class="e sys">O código era ${S.code.join("")}.</div>
+    <button class="cont" id="again" type="button">RECOMEÇAR</button>`;
+}
+function finish(title, good) {
+  S.over = true; S.timerOn = false; S.mode = "end";
+  chEl.innerHTML = summaryHTML(title, good);
+  $("again").addEventListener("click", () => startGame());
+}
+function endWin() {
+  addEntry({ t: "Você atravessa a porta. Atrás de você, a luz de alarme continua girando para ninguém." });
+  addEntry({ v: "SIS", t: "FIM DO PROTÓTIPO. A CENA 2 ESPERA NO CORREDOR B-7.", cls: "alarm" });
+  finish("VOCÊ SAIU DA CELA", true);
+}
+async function endDeath() {
+  S.over = true; S.timerOn = false; S.fadeOut = true;
+  await say([{ t: "Suas pernas cedem. O chão da cela é frio, e depois não é mais nada.", cls: "bad" }, { v: "VAZ", t: "Eu disse que era quentinho aqui." }]);
+  finish("VOCÊ MORREU NA CELA", false);
+}
+async function endCollapse() {
+  S.over = true; S.timerOn = false;
+  await say([{ t: "Você senta no canto da cela, abraça os joelhos e fecha os olhos. O teclado pode esperar. Tudo pode esperar.", cls: "bad" }, { v: "VAZ", t: "Isso. Fique." }]);
+  S.fadeOut = true;
+  finish("VOCÊ DESISTIU", false);
+}
+function reactorEnd() {
+  if (S.over) return;
+  RUN++; S.over = true; S.timerOn = false; S.mode = "busy";
+  S.flash = { c: "#fff4e0", a: 1 }; S.shake = 30; SFX.door(); SFX.bang();
+  chEl.innerHTML = "";
+  addEntry({ v: "SIS", t: "DETONAÇÃO DO NÚCLEO.", cls: "alarm" });
+  addEntry({ t: "Por um instante, tudo fica branco. Depois, não há mais cela, nem nave, nem você." });
+  S.fadeOut = true;
+  setTimeout(() => finish("O TEMPO ACABOU", false), 1500);
+}
+
+/* =========================================================
+   HUD E RELÓGIO
+   ========================================================= */
+function hud() {
+  $("hp").innerHTML = [0, 1, 2].map(i => `<i class="${i < S.hp ? "on" : ""}"></i>`).join("");
+  $("mo").innerHTML = [0, 1, 2].map(i => `<i class="${i < S.mo ? "on" : ""}"></i>`).join("");
+  $("status").innerHTML = [S.inf ? '<span class="tag">INFECTADO</span>' : "", S.doses ? `DOSES ${S.doses}` : "", S.items.length ? S.items.map(i => ITEMS[i].toUpperCase()).join(" · ") : ""].filter(Boolean).join(" · ");
+  $("jlist").innerHTML = S.notes.length ? S.notes.map(n => `<li>“${esc(n)}”</li>`).join("") : "<li>Nada anotado ainda.</li>";
+  $("jBtn").textContent = `DIÁRIO (${S.notes.length})`;
+}
+let clockStr = "", heartAt = 0;
+function tickClock(dt) {
+  if (S.timerOn && !S.paused && !S.over) {
+    S.timeLeft -= dt;
+    const m = S.timeLeft / 60000;
+    for (const w of [30, 10, 5, 1]) if (m <= w && S.minutes > w && !S.warned[w]) { S.warned[w] = true; SFX.alarm(); addEntry({ v: "SIS", t: `DETONAÇÃO EM ${w} MINUTO${w > 1 ? "S" : ""}.`, cls: "alarm" }); }
+    if (m < 3 && T > heartAt) { SFX.heart(); heartAt = T + (m < 1 ? 520 : 950); }
+    if (S.timeLeft <= 0) { S.timeLeft = 0; reactorEnd(); }
+  }
+  const s = S.timerOn || S.over ? Math.max(0, Math.ceil(S.timeLeft / 1000)) : null;
+  const str = s === null ? "--:--" : `${String(s / 60 | 0).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  if (str !== clockStr) { $("clock").textContent = str; clockStr = str; }
+  $("clock").classList.toggle("crit", s !== null && s < 300);
+}
+
+/* =========================================================
+   RENDERIZAÇÃO
+   ========================================================= */
+let T = 0, lastT = 0, grainPat = null, vign = null;
+const DUST = Array.from({ length: 60 }, (_, i) => ({ x: hsh(i + 300) * 900 + 60, y: hsh(i + 400) * 600 + 40, s: 0.3 + hsh(i + 500) * 0.8 }));
+function drawScene() {
+  ctx.drawImage(ART.room, 0, 0);
+  // porta abrindo: folhas antigas deslizam para dentro da parede
+  if (ART.roomOld && S.doorT) {
+    const t = Math.min(1, (performance.now() - S.doorT) / 1800);
+    if (t < 1) for (const [u0, dir] of [[196, -1], [242, 1]]) {
+      const w = 46 * (1 - t), uStart = dir < 0 ? u0 : u0 + 46 * t;
+      ctx.save();
+      ctx.beginPath(); const q = [wA(uStart, 152), wA(uStart + w, 152), wA(uStart + w, 0), wA(uStart, 0)];
+      ctx.moveTo(...q[0]); q.slice(1).forEach(p => ctx.lineTo(...p)); ctx.closePath(); ctx.clip();
+      const off = dir * 46 * t; ctx.drawImage(ART.roomOld, off, off * 0.5);
+      ctx.restore();
+    }
+  }
+  // luz de alarme girando
+  const beam = Math.pow(Math.max(0, Math.sin(T / 520)), 2);
+  const [bx, by] = wB(309, 208);
+  ctx.save(); ctx.globalCompositeOperation = "screen";
+  let g = ctx.createRadialGradient(bx, by, 4, bx, by, 520); g.addColorStop(0, `rgba(210,50,35,${0.55 * beam})`); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
+  ctx.fillStyle = `rgba(255,${90 + 80 * beam | 0},70,${0.6 + 0.4 * beam})`; ctx.beginPath(); ctx.ellipse(bx, by, 14, 9, 0, 0, 7); ctx.fill();
+  // terminal
+  const flick = hsh(Math.floor(T / 90)) > 0.15 ? 1 : 0.3;
+  const [tx, ty] = wB((8 - 3.9) * 44 + 40, 100);
+  g = ctx.createRadialGradient(tx, ty, 2, tx, ty, 150); g.addColorStop(0, `rgba(80,200,120,${0.28 * flick})`); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
+  // teclado
+  const [kx, ky] = wA(315, 108);
+  const kc = S.flags.doorOpen || S.flags.solved ? "80,210,120" : "220,60,40";
+  g = ctx.createRadialGradient(kx, ky, 1, kx, ky, 46); g.addColorStop(0, `rgba(${kc},${0.5 + 0.3 * Math.sin(T / 300)})`); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g; ctx.fillRect(kx - 50, ky - 50, 100, 100);
+  ctx.restore();
+  // tela do terminal com linhas
+  onB(ctx, g2 => { g2.globalAlpha = 0.7 * flick; g2.fillStyle = "#3fb56a"; const u0 = (8 - 3.9) * 44 + 10; for (let r = 0; r < 5; r++) g2.fillRect(u0, -116 + r * 7, 10 + hsh(r + Math.floor(T / 400)) * 44, 1.6); });
+  // olhos no duto
+  if ((T % 9000) < 1600 && Math.floor(T / 180) % 7) onA(ctx, g2 => { g2.fillStyle = "#e6b83a"; g2.fillRect(128, -181, 3, 2); g2.fillRect(139, -181, 3, 2); });
+  // escuridão que pulsa com a luz
+  ctx.save(); ctx.globalCompositeOperation = "multiply";
+  ctx.fillStyle = `rgba(${190 + 50 * beam | 0},${182 + 30 * beam | 0},${186 + 30 * beam | 0},1)`; ctx.fillRect(0, 0, CW, CH);
+  ctx.restore();
+  // marcadores dos pontos de interesse
+  if (S.mode === "explore" || S.mode === "opts") for (const k in HOT) {
+    const h = HOT[k], cx = h.r.x + h.r.w / 2, cy = h.r.y + h.r.h / 2, on = S.hover === h;
+    ctx.save(); ctx.globalAlpha = on ? 0.95 : 0.35 + 0.1 * Math.sin(T / 500);
+    ctx.strokeStyle = "#f3ecdc"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, on ? 13 : 10, 0, 7); ctx.stroke();
+    ctx.fillStyle = "#f3ecdc"; ctx.beginPath(); ctx.arc(cx, cy, 3, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+  // personagem
+  const [px, py] = iso(S.pos.x, S.pos.y);
+  ctx.save(); ctx.globalAlpha = 0.45; ctx.fillStyle = "#050606"; ctx.beginPath(); ctx.ellipse(px, py, 22, 10, 0, 0, 7); ctx.fill(); ctx.restore();
+  const frames = S.facing.back ? ART.spr.back : ART.spr.front;
+  const fr = S.target ? frames[Math.floor(S.walkPh / 140) % 4] : frames[0];
+  ctx.save(); ctx.translate(px, py); if (S.facing.flip) ctx.scale(-1, 1);
+  ctx.drawImage(fr, -FOOT[0], -FOOT[1]);
+  ctx.restore();
+  // luz vermelha também no personagem
+  ctx.save(); ctx.globalCompositeOperation = "soft-light"; ctx.globalAlpha = 0.5 * beam; ctx.fillStyle = "#ff3a2a"; ctx.fillRect(px - 36, py - 110, 72, 112); ctx.restore();
+  // poeira e névoa
+  ctx.save();
+  for (const d of DUST) { const x = (d.x + T * 0.006 * d.s) % 1000, y = d.y + Math.sin(T / 2000 + d.x) * 10; ctx.globalAlpha = 0.18 + 0.3 * beam * d.s; ctx.fillStyle = "#d9cfbc"; ctx.fillRect(x, y, 2, 2); }
+  ctx.globalAlpha = 0.07;
+  for (let i = 0; i < 3; i++) { const x = ((T / 90 + i * 400) % 1600) - 300; g = ctx.createRadialGradient(x, 520 + i * 40, 10, x, 520 + i * 40, 280); g.addColorStop(0, "#b6c7c0"); g.addColorStop(1, "rgba(0,0,0,0)"); ctx.fillStyle = g; ctx.fillRect(x - 300, 220 + i * 40, 600, 600); }
+  ctx.restore();
+}
+function drawKeypadView() {
+  ctx.save(); ctx.globalAlpha = 0.75; ctx.fillStyle = "#050606"; ctx.fillRect(0, 0, CW, CH); ctx.restore();
+  const sh = T - S.bangT < 250 ? (Math.random() - 0.5) * 10 : 0;
+  ctx.save(); ctx.translate(sh, 0);
+  ctx.drawImage(ART.keypad, 0, 0);
+  const scr = { x: KP.x + 50, y: KP.y + 60, w: KP.w - 100, h: 90 };
+  if (S.kMsg) { ctx.fillStyle = S.kMsg === "ok" ? "rgba(40,120,60,.8)" : "rgba(130,20,15,.8)"; ctx.fillRect(scr.x, scr.y, scr.w, scr.h); }
+  ctx.font = '52px "Share Tech Mono", monospace'; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = S.kMsg === "err" ? "#ffb3a6" : S.kMsg === "ok" ? "#c9ffd5" : "#6dff9a";
+  ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 12;
+  ctx.fillText(S.kMsg === "err" ? "NEGADO" : S.kMsg === "ok" ? "LIBERADO" : (S.entry.padEnd(4, "_")).split("").join(" "), scr.x + scr.w / 2, scr.y + scr.h / 2 + 2);
+  ctx.shadowBlur = 0;
+  for (const k of KEYS) if (S.pressed === k.k && T < S.pressedUntil) { ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.fillRect(k.x, k.y, k.w, k.h); ctx.fillStyle = "rgba(255,240,210,.12)"; ctx.fillRect(k.x, k.y + 4, k.w, k.h); }
+  ctx.restore();
+  // mão enluvada
+  const h = S.hand; h.x += (h.tx - h.x) * 0.22; h.y += (h.ty - h.y) * 0.22;
+  ctx.save(); ctx.translate(h.x, h.y); ctx.rotate(-0.18);
+  ctx.fillStyle = "#2b2520"; ctx.fillRect(-9, 0, 18, 58);
+  ctx.fillStyle = "#3a3129"; ctx.fillRect(-9, 0, 18, 6);
+  ctx.fillStyle = "#2b2520"; ctx.beginPath(); ctx.ellipse(8, 72, 34, 28, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = "#231e1a"; ctx.fillRect(16, 50, 10, 30); ctx.fillRect(28, 54, 10, 26);
+  ctx.fillStyle = "#9c6a2a"; ctx.fillRect(-26, 92, 70, 400);
+  ctx.fillStyle = "#7a5020"; ctx.fillRect(18, 92, 26, 400);
+  ctx.restore();
+  // tentativas
+  ctx.save(); ctx.font = '600 20px "Barlow Condensed", Arial'; ctx.fillStyle = "#948d80"; ctx.textAlign = "left";
+  ctx.fillText("NEGADOS", 60, 110);
+  ctx.font = '26px "Share Tech Mono", monospace'; ctx.fillStyle = "#b35a4a";
+  S.tried.slice(-12).forEach((c, i) => ctx.fillText(c, 60, 146 + i * 34));
+  ctx.restore();
+}
+function frame(now) {
+  const dt = Math.min(100, now - (lastT || now)); lastT = now; T = now;
+  if (ART) {
+    tickClock(dt);
+    updateWalk(dt);
+    ctx.save();
+    if (S.shake > 0.3) { ctx.translate((Math.random() - 0.5) * S.shake, (Math.random() - 0.5) * S.shake); S.shake *= 0.88; }
+    drawScene();
+    if (S.mode === "keypad" || (S.mode === "busy" && S.kMsg === "ok")) drawKeypadView();
+    ctx.restore();
+    if (S.mode === "explore" && T > S.idleVoiceAt) {
+      if (S.idleVoiceAt) addEntry(pickOne([
+        { v: "VAZ", t: "Você ouviu isso? Lá no duto. Seu nome, bem baixinho." },
+        { v: "PER", t: "O corpo do engenheiro mudou de posição. Um pouco. Ou você é que mudou." },
+        { v: "LOG", t: "O relógio não para porque você está pensando." },
+        { v: "VOL", t: "Respire. Uma pista de cada vez." },
+      ]));
+      S.idleVoiceAt = T + 45000 + Math.random() * 30000;
+    }
+  } else if (ART === null) {
+    ctx.fillStyle = "#070908"; ctx.fillRect(0, 0, CW, CH);
+  }
+  // granulado, vinheta, sustos
+  if (!grainPat) grainPat = ctx.createPattern(grainTile(), "repeat");
+  ctx.save(); ctx.globalCompositeOperation = "overlay"; ctx.globalAlpha = 0.09; ctx.translate(rnd(256), rnd(256)); ctx.fillStyle = grainPat; ctx.fillRect(-256, -256, CW + 512, CH + 512); ctx.restore();
+  if (!vign) { vign = ctx.createRadialGradient(470, 360, 200, 470, 360, 900); vign.addColorStop(0, "rgba(0,0,0,0)"); vign.addColorStop(1, "rgba(0,0,0,.8)"); }
+  ctx.fillStyle = vign; ctx.fillRect(0, 0, CW, CH);
+  if (S.scareUntil > T && ART) { ctx.drawImage(ART.scare, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30); }
+  if (S.flash) { ctx.save(); ctx.globalAlpha = S.flash.a; ctx.fillStyle = S.flash.c; ctx.fillRect(0, 0, CW, CH); ctx.restore(); S.flash.a *= 0.9; if (S.flash.a < 0.02) S.flash = null; }
+  if (S.paused && S.timerOn) { ctx.save(); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(0, 0, CW, CH); ctx.font = '700 64px "Barlow Condensed", Arial'; ctx.textAlign = "center"; ctx.fillStyle = "#ddd5c4"; ctx.fillText("PAUSADO", 470, 380); ctx.restore(); }
+  if (S.fadeOut) S.fade = Math.min(1, (S.fade || 0) + 0.015);
+  else if (S.fade > 0) S.fade = Math.max(0, S.fade - 0.02);
+  if (S.fade > 0) { ctx.save(); ctx.globalAlpha = S.fade; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
+  requestAnimationFrame(frame);
+}
+
+/* =========================================================
+   ENTRADA
+   ========================================================= */
+function canvasPt(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * CW / r.width, y: (e.clientY - r.top) * CH / r.height }; }
+const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+function hotAt(p) { for (const k of ["keypad", "terminal", "locker", "corpse", "writing", "vent", "beacon", "door"]) if (inRect(p, HOT[k].r)) return k; return null; }
+cv.addEventListener("mousemove", e => {
+  if (!ART) return;
+  const p = canvasPt(e), tip = $("tip");
+  if (S.mode === "keypad") { cv.style.cursor = KEYS.some(k => inRect(p, k)) ? "pointer" : "default"; tip.hidden = true; return; }
+  const k = S.mode === "explore" ? hotAt(p) : null;
+  S.hover = k ? HOT[k] : null;
+  cv.style.cursor = k ? "pointer" : S.mode === "explore" ? "crosshair" : "default";
+  if (k) {
+    const r = cv.getBoundingClientRect(), h = HOT[k];
+    tip.innerHTML = `<b>${h.label}</b>${esc(h.sub)}`;
+    tip.style.left = ((h.r.x + h.r.w / 2) / CW * r.width) + "px";
+    tip.style.top = (h.r.y / CH * r.height - 6) + "px";
+    tip.hidden = false;
+  } else tip.hidden = true;
+});
+cv.addEventListener("mouseleave", () => { $("tip").hidden = true; S.hover = null; });
+cv.addEventListener("click", e => {
+  if (!ART) return;
+  const p = canvasPt(e);
+  if (S.mode === "keypad") { const k = KEYS.find(q => inRect(p, q)); if (k) pressKey(k.k); return; }
+  if (S.mode === "cont") return S.contFn();
+  if (S.mode !== "explore") return;
+  const k = hotAt(p);
+  $("tip").hidden = true;
+  if (k) return S.hotFn(k);
+  const f = toIsoFloor(p.x, p.y);
+  if (f.x > 0 && f.x < 8 && f.y > 0 && f.y < 8) walkTo(f.x, f.y);
+});
+$("logInner").addEventListener("click", () => { if (S.mode === "cont") S.contFn(); });
+document.addEventListener("keydown", e => {
+  if (e.target.closest && e.target.closest("select")) return;
+  const k = e.key;
+  if (S.mode === "cont" && (k === " " || k === "Enter")) { e.preventDefault(); S.contFn(); return; }
+  if (S.mode === "opts" && /^[1-9]$/.test(k)) { S.optFn(+k - 1); return; }
+  if (S.mode === "explore" && /^[1-9]$/.test(k)) { const list = S.exploreList; if (+k <= list.length) S.hotFn(list[+k - 1]); else if (+k === list.length + 1 && S.doses && S.hp < 3) S.hotFn("dose"); return; }
+  if (S.mode === "dice") { if (k === " " || k === "Enter") { e.preventDefault(); S.rollFn(); } else if (/^[1-6]$/.test(k)) S.rollFn(+k); return; }
+  if (S.mode === "keypad") {
+    if (/^[0-9]$/.test(k)) pressKey(k);
+    else if (k === "Enter") { e.preventDefault(); pressKey("OK"); }
+    else if (k === "Backspace") { e.preventDefault(); if (!S.kLock) { S.entry = S.entry.slice(0, -1); SFX.key(); } }
+    else if (k === "Escape") S.kDone(false);
+  }
+});
+$("jBtn").addEventListener("click", () => { $("journal").hidden = !$("journal").hidden; });
+$("journal").addEventListener("click", () => { $("journal").hidden = true; });
+$("pBtn").addEventListener("click", e => { if (!S.timerOn) return; S.paused = !S.paused; e.currentTarget.textContent = S.paused ? "CONTINUAR" : "PAUSAR"; e.currentTarget.classList.toggle("on", S.paused); });
+$("sBtn").addEventListener("click", e => { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.6; e.currentTarget.classList.toggle("on", muted); e.currentTarget.textContent = muted ? "SEM SOM" : "SOM"; });
+$("fBtn").addEventListener("click", () => { try { if (document.fullscreenElement) document.exitFullscreen(); else $("game").requestFullscreen().catch(() => {}); } catch (_) {} });
+
+async function startGame() {
+  RUN++;
+  const id = RUN;
+  S.minutes = +$("mins").value || 60;
+  resetState();
+  S.flags = {}; S.fadeOut = false; S.fade = 1;
+  ART.room = bakeRoom(S.flags); ART.roomOld = null;
+  logEl.innerHTML = ""; chEl.innerHTML = "";
+  $("title").hidden = true;
+  hud();
+  try {
+    await intro();
+    while (!S.flags.solved) {
+      const k = await exploreChoice();
+      await interact(k);
+    }
+    await openDoor();
+  } catch (e) { if (e !== STOP && live(id)) console.error(e); }
+}
+
+async function boot() {
+  requestAnimationFrame(frame);
+  try { await Promise.race([Promise.all(['30px "Rock Salt"', '600 22px "Barlow Condensed"', '52px "Share Tech Mono"'].map(f => document.fonts.load(f))), new Promise(r => setTimeout(r, 2500))]); } catch (_) {}
+  await new Promise(r => setTimeout(r, 30));
+  resetState();
+  ART = { room: bakeRoom({}), spr: bakeSprites(), keypad: bakeKeypad(), scare: bakeScare(), roomOld: null };
+  $("portrait").getContext("2d").drawImage(bakePortrait(), 0, 0);
+  S.mode = "title"; S.fade = 0;
+  hud();
+  $("loading").hidden = true;
+  $("startBtn").addEventListener("click", () => { initAudio(); startAmbient(); startGame(); });
+}
+boot();
+})();
+</script>
