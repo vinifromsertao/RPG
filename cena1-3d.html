@@ -78,7 +78,7 @@
 
   /* ---------- Retrato, saúde e moral ---------- */
   #hud{position:absolute; left:14px; bottom:12px; display:flex; align-items:flex-end; gap:10px; pointer-events:none}
-  #portrait{width:clamp(64px,8vw,112px); height:auto; aspect-ratio:110/130; border:1px solid #3a3833; background:#0d1110}
+  #portrait{image-rendering:pixelated; width:clamp(64px,8vw,112px); height:auto; aspect-ratio:110/130; border:1px solid #3a3833; background:#0d1110}
   .meters{display:flex; flex-direction:column; gap:5px; font-family:var(--cond); font-size:12px; letter-spacing:.12em; color:var(--dim)}
   .pips{display:flex; gap:4px; align-items:center}
   .pips b{font-weight:600; width:48px}
@@ -148,6 +148,7 @@
         <button id="pBtn" type="button">PAUSAR</button>
         <button id="sBtn" type="button">SOM</button>
         <button id="fBtn" type="button">TELA CHEIA</button>
+        <button id="psBtn" type="button" class="on">FILTRO PS1</button>
         <button id="mBtn" type="button" title="Carregar um personagem .glb (ou arraste o arquivo para a cena)">MODELO 3D</button>
         <input id="glbFile" type="file" accept=".glb,.gltf,model/gltf-binary" hidden>
       </div>
@@ -157,7 +158,7 @@
   </aside>
   <div id="title">
     <h1>SINAL MORTO <span>A CELA</span></h1>
-    <p style="font-family:var(--cond);letter-spacing:.14em;color:var(--ochre)">VERSÃO 3D ISOMÉTRICA</p>
+    <p style="font-family:var(--cond);letter-spacing:.14em;color:var(--ochre)">VERSÃO 3D · ESTILO PLAYSTATION</p>
     <p>Você acorda numa cela da nave mineradora CSV Tártaro. O reator vai explodir. A porta pede um código que ninguém lhe deu.</p>
     <div class="row"><label for="mins">TEMPO ATÉ A DETONAÇÃO</label>
       <select id="mins"><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="60" selected>60 minutos</option></select></div>
@@ -1042,141 +1043,136 @@ function paintedTex(base, o = {}) {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; if (o.rep) t.repeat.set(o.rep, o.rep);
   return t;
 }
+/* ---------- Personagem estilo PlayStation 1 ----------
+   Peças rígidas de poucos polígonos, sombreamento facetado e texturas
+   minúsculas desenhadas pixel a pixel (sem filtro), como em RE2.       */
+const PS1_W = 320, PS1_H = 180;                    // resolução interna do 3D
+function pxTex(w, h, draw) {
+  const c = mk(w, h), g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  draw(g, (x, y, ww, hh, col) => { g.fillStyle = col; g.fillRect(x, y, ww, hh); });
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+  t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+function speckle(px, w, h, cols, n, x0 = 0, y0 = 0) { for (let i = 0; i < n; i++) px(x0 + rnd(w), y0 + rnd(h), 1, 1, pickOne(cols)); }
+function ps1Material(opts) {
+  const m = new THREE.MeshLambertMaterial(Object.assign({ flatShading: true }, opts));
+  m.onBeforeCompile = sh => {
+    // tremido de vértices: posições arredondadas para a grade de baixa resolução
+    sh.vertexShader = sh.vertexShader.replace("#include <project_vertex>", `#include <project_vertex>
+      vec2 psGrid = vec2(${(PS1_W / 2).toFixed(1)}, ${(PS1_H / 2).toFixed(1)});
+      gl_Position.xy = floor(gl_Position.xy / gl_Position.w * psGrid + 0.5) / psGrid * gl_Position.w;`);
+    // cores de 15 bits com pontilhado ordenado
+    sh.fragmentShader = sh.fragmentShader.replace("#include <dithering_fragment>", `#include <dithering_fragment>
+      vec2 psA = floor(gl_FragCoord.xy);
+      float psB2a = fract(psA.x * 0.5 + psA.y * psA.y * 0.75);
+      vec2 psH = floor(psA * 0.5);
+      float psB2b = fract(psH.x * 0.5 + psH.y * psH.y * 0.75);
+      float psBayer = psB2b * 0.25 + psB2a;
+      gl_FragColor.rgb = floor(gl_FragColor.rgb * 31.0 + psBayer) / 31.0;`);
+  };
+  return m;
+}
 function buildCharacter() {
-  const M = (color, o = {}) => new THREE.MeshStandardMaterial({ color: o.tex ? 0xffffff : color, map: o.tex || null, roughness: o.r ?? 0.85, metalness: o.m ?? 0, emissive: o.e || 0x000000, emissiveIntensity: o.ei ?? 1, side: o.side || THREE.FrontSide });
+  const SKIN = "#c29c78", SKIN_D = "#8f6a50", HAIR = "#1e1814", HAIR_L = "#35291f";
+  const COAT = "#8a5a22", COAT_D = "#5e3c14", COAT_L = "#a8742e";
+  const faceTex = pxTex(16, 16, (g, px) => {
+    px(0, 0, 16, 16, SKIN);
+    px(0, 0, 16, 4, HAIR); [1, 3, 4, 7, 9, 12, 14].forEach(x => px(x, 4, 1, 1 + (x % 2), HAIR)); px(0, 4, 2, 5, HAIR); px(14, 4, 2, 5, HAIR);
+    px(3, 6, 4, 1, HAIR_L); px(9, 6, 4, 1, HAIR_L);
+    px(3, 7, 3, 2, "#e0d8c8"); px(10, 7, 3, 2, "#e0d8c8"); px(5, 7, 1, 2, "#22302a"); px(10, 7, 1, 2, "#22302a");
+    px(3, 9, 3, 1, SKIN_D); px(10, 9, 3, 1, SKIN_D);
+    px(7, 8, 2, 3, SKIN_D); px(7, 11, 2, 1, "#6d4c3c");
+    px(5, 13, 6, 1, "#6b3a30");
+    speckle(px, 10, 3, ["#8a6a55", "#7a5a48"], 14, 3, 12);
+    px(13, 9, 1, 3, "#8a2a20");
+  });
+  const headSide = pxTex(16, 16, (g, px) => { px(0, 0, 16, 16, SKIN); px(0, 0, 16, 7, HAIR); px(8, 7, 8, 5, HAIR); px(5, 8, 3, 4, SKIN_D); speckle(px, 6, 4, ["#8a6a55"], 6, 0, 12); });
+  const hairTex = pxTex(16, 16, (g, px) => { px(0, 0, 16, 16, HAIR); speckle(px, 16, 16, [HAIR_L, "#141009"], 50); });
+  const coatFront = pxTex(32, 32, (g, px) => {
+    px(0, 0, 32, 32, COAT); speckle(px, 32, 32, [COAT_D, COAT_L], 90);
+    px(13, 0, 6, 32, "#2e2824"); speckle(px, 6, 32, ["#3b332d"], 20, 13, 0);
+    for (let y = 0; y < 14; y++) { px(8 + Math.floor(y / 3), y, 5 - Math.floor(y / 3), 1, COAT_L); px(19, y, 5 - Math.floor(y / 3), 1, COAT_D); }
+    px(9, 0, 14, 4, "#4f5d52"); px(10, 4, 4, 5, "#4f5d52"); speckle(px, 14, 4, ["#3d4a40"], 10, 9, 0);
+    [14, 19, 24].forEach(y => { px(11, y, 1, 1, "#2a1a0e"); px(20, y, 1, 1, "#2a1a0e"); });
+    px(2, 16, 6, 1, "#2a1a0e"); px(24, 16, 6, 1, "#2a1a0e");
+    px(0, 28, 32, 3, "#2b1a10"); px(14, 28, 4, 3, "#9aa29c");
+    px(22, 9, 3, 2, "#1a2a2c"); px(23, 9, 1, 1, "#6fe8f5"); px(22, 12, 3, 2, "#1a2a2c"); px(23, 12, 1, 1, "#6fe8f5");
+  });
+  const coatBack = pxTex(32, 32, (g, px) => { px(0, 0, 32, 32, COAT); speckle(px, 32, 32, [COAT_D, COAT_L], 90); px(12, 2, 8, 26, "#262c2a"); for (let k = 0; k < 5; k++) px(11, 4 + k * 5, 10, 1, "#59625f"); px(0, 28, 32, 3, "#2b1a10"); });
+  const coatSide = pxTex(16, 32, (g, px) => { px(0, 0, 16, 32, COAT); speckle(px, 16, 32, [COAT_D, COAT_L], 40); px(7, 0, 1, 32, COAT_D); px(0, 28, 16, 3, "#2b1a10"); });
+  const coatPlain = pxTex(16, 16, (g, px) => { px(0, 0, 16, 16, COAT); speckle(px, 16, 16, [COAT_D, COAT_L], 30); });
+  const skirtTex = pxTex(32, 16, (g, px) => {
+    px(0, 0, 32, 16, COAT); speckle(px, 32, 16, [COAT_D, COAT_L], 60);
+    for (let x = 2; x < 32; x += 5) px(x, 2, 1, 12, COAT_D);
+    px(15, 0, 2, 16, "#2e2824");
+    for (let x = 0; x < 32; x += 3) px(x, 14 + (x % 2), 2, 2, "#3a2610");
+    px(5, 3, 5, 4, COAT_D); px(22, 3, 5, 4, COAT_D);
+  });
+  const pantsTex = pxTex(16, 16, (g, px) => { px(0, 0, 16, 16, "#2a2622"); speckle(px, 16, 16, ["#1d1a17", "#37312b"], 30); px(7, 0, 1, 16, "#1d1a17"); });
+  const bootTex = pxTex(16, 16, (g, px) => { px(0, 0, 16, 16, "#1b1612"); speckle(px, 16, 16, ["#2c241d"], 20); for (let y = 3; y < 10; y += 2) px(5, y, 6, 1, "#4a3526"); px(0, 13, 16, 3, "#0a0807"); });
+  const gloveTex = pxTex(8, 8, (g, px) => { px(0, 0, 8, 8, "#2a241f"); px(2, 4, 1, 4, "#1a1511"); px(4, 4, 1, 4, "#1a1511"); px(6, 4, 1, 4, "#1a1511"); });
+  const beltTex = pxTex(16, 8, (g, px) => { px(0, 0, 16, 8, "#2a2622"); px(0, 0, 16, 3, "#3b2618"); px(7, 0, 2, 3, "#9aa29c"); px(2, 3, 3, 3, "#3b2618"); px(11, 3, 3, 3, "#3b2618"); });
+
+  const M = (map, extra = {}) => ps1Material(Object.assign({ map }, extra));
   const mat = {
-    coat: M(0, { tex: paintedTex("#7a4f1e", { wear: 80, seams: true, rep: 2, jit: 0.2 }), side: THREE.DoubleSide }),
-    coatD: M(0, { tex: paintedTex("#553612", { wear: 30, rep: 2 }), side: THREE.DoubleSide }),
-    lining: M(0, { tex: paintedTex("#3a1e14", { rep: 2 }), side: THREE.DoubleSide }),
-    shirt: M(0, { tex: paintedTex("#3b3430", { ang: 0 }) }),
-    pants: M(0, { tex: paintedTex("#25221e", { wear: 40 }) }),
-    boot: M(0x1b1612, { r: 0.55 }), sole: M(0x0c0a09, { r: 0.9 }),
-    leather: M(0x3b2618, { r: 0.6 }), glove: M(0x2a241f, { r: 0.7 }),
-    skin: M(0, { tex: paintedTex("#c4a383", { jit: 0.1, n: 1800, a: 0.35, spread: 3 }), r: 0.7 }),
-    skinD: M(0x9b7a60, { r: 0.8 }), lip: M(0x7d4a40, { r: 0.6 }),
-    hair: M(0x1c1714, { r: 0.9 }), hair2: M(0x2b221c, { r: 0.9 }),
-    eyeW: M(0xd9d3c6, { r: 0.3 }), iris: M(0x2d3a34, { r: 0.2 }), pupil: M(0x050505, { r: 0.1 }),
-    metal: M(0x59625f, { r: 0.35, m: 0.7 }), metalD: M(0x2e3432, { r: 0.5, m: 0.6 }),
-    rig: M(0x103036, { e: 0x5fe3f2, ei: 1.6, r: 0.3 }), tube: M(0x1d2422, { r: 0.6 }),
-    button: M(0x2a1a0e, { r: 0.4, m: 0.3 }), scarf: M(0, { tex: paintedTex("#4b5a50", { ang: 0.4, spread: 0.3 }) }),
+    face: M(faceTex), headSide: M(headSide), hair: M(hairTex), skin: ps1Material({ color: 0xc29c78 }),
+    coatFront: M(coatFront), coatBack: M(coatBack), coatSide: M(coatSide), coat: M(coatPlain),
+    skirt: M(skirtTex, { side: THREE.DoubleSide }), pants: M(pantsTex), boot: M(bootTex), glove: M(gloveTex), belt: M(beltTex),
+    dark: ps1Material({ color: 0x15110e }), metal: ps1Material({ color: 0x59625f }),
+    rig: ps1Material({ color: 0x103036, emissive: 0x5fe3f2, emissiveIntensity: 1.6 }),
   };
   const shadowed = [];
-  const add = (parent, geo, m, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) => {
-    const mesh = new THREE.Mesh(geo, m); mesh.position.set(x, y, z); mesh.rotation.set(rx, ry, rz); mesh.scale.set(sx, sy, sz);
+  const add = (parent, geo, m, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
+    const mesh = new THREE.Mesh(geo, m); mesh.position.set(x, y, z); mesh.rotation.set(rx, ry, rz);
     mesh.castShadow = true; parent.add(mesh); shadowed.push(mesh); return mesh;
   };
   const grp = (parent, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; };
-  const cap = (r, l, s = 10) => new THREE.CapsuleGeometry(r, l, 6, s);
-  const sph = (r, w = 16, h = 12) => new THREE.SphereGeometry(r, w, h);
-  const lathe = (pts, seg = 28, ps = 0, pl = Math.PI * 2) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg, ps, pl);
+  const limb = (rt, rb, h, seg = 5) => new THREE.CylinderGeometry(rt, rb, h, seg);
+  const boxM = (sx, sy, sz, mats) => { const b = new THREE.BoxGeometry(sx, sy, sz); return [b, mats]; };
 
   const root = new THREE.Group();
   const body = grp(root);
   const hips = grp(body, 0, 0.95, 0);
-  // quadril, cinto, bolsas
-  add(hips, cap(0.13, 0.1), mat.pants, 0, 0, 0, 0, 0, Math.PI / 2, 1, 1, 0.8);
-  add(hips, new THREE.CylinderGeometry(0.162, 0.158, 0.05, 24), mat.leather, 0, 0.07, 0, 0, 0, 0, 1, 1, 0.78);
-  add(hips, new THREE.BoxGeometry(0.05, 0.04, 0.012), mat.metal, 0, 0.07, 0.128);
-  add(hips, new THREE.BoxGeometry(0.07, 0.08, 0.05), mat.leather, 0.14, 0.02, 0.05, 0, 0.5);
-  add(hips, new THREE.BoxGeometry(0.06, 0.07, 0.045), mat.leather, -0.15, 0.02, -0.02, 0, -0.4);
-  // coldre com o cortador de plasma
-  add(hips, new THREE.BoxGeometry(0.035, 0.14, 0.06), mat.leather, -0.17, -0.07, 0.04);
-  add(hips, new THREE.CylinderGeometry(0.014, 0.014, 0.1, 8), mat.metal, -0.17, 0.02, 0.05);
-  // aba de baixo do sobretudo (balança ao andar)
-  const skirt = grp(hips, 0, 0.02, 0);
-  add(skirt, lathe([[0.205, 0.0], [0.23, -0.12], [0.26, -0.28], [0.29, -0.45], [0.315, -0.6], [0.325, -0.66]], 32, 0.28, Math.PI * 2 - 0.56), mat.coat);
-  add(skirt, lathe([[0.2, 0.0], [0.225, -0.12], [0.255, -0.28], [0.284, -0.45], [0.309, -0.6], [0.318, -0.655]], 32, 0.28, Math.PI * 2 - 0.56), mat.lining, 0, 0, 0, 0, 0, 0, 0.99, 1, 0.99);
-  add(skirt, new THREE.BoxGeometry(0.1, 0.11, 0.015), mat.coatD, 0.19, -0.2, 0.19, 0.08, 0.72);
-  add(skirt, new THREE.BoxGeometry(0.1, 0.11, 0.015), mat.coatD, -0.19, -0.2, 0.19, 0.08, -0.72);
-  add(skirt, new THREE.BoxGeometry(0.012, 0.5, 0.012), mat.coatD, 0, -0.35, -0.3, 0.12);
-  for (let k = 0; k < 7; k++) add(skirt, new THREE.BoxGeometry(0.04 + Math.random() * 0.03, 0.03 + Math.random() * 0.03, 0.01), mat.coatD, Math.sin(k * 0.9 + 2) * 0.31, -0.64, Math.cos(k * 0.9 + 2) * 0.31, 0, k * 0.9 + 2);
-
-  // tronco
+  add(hips, ...boxM(0.3, 0.16, 0.2, mat.belt), 0, 0.02, 0);
+  const skirt = grp(hips, 0, 0.0, 0);
+  add(skirt, new THREE.CylinderGeometry(0.2, 0.31, 0.62, 7, 1, true), mat.skirt, 0, -0.31, 0, 0, Math.PI / 7);
   const spine = grp(hips, 0, 0.09, 0);
-  add(spine, lathe([[0.15, 0], [0.16, 0.1], [0.175, 0.22], [0.19, 0.33], [0.185, 0.42], [0.14, 0.5], [0.06, 0.54]]), mat.shirt, 0, 0, 0, 0, 0, 0, 1, 1, 0.72);
-  add(spine, lathe([[0.2, -0.02], [0.205, 0.1], [0.22, 0.22], [0.235, 0.33], [0.232, 0.42], [0.2, 0.49], [0.14, 0.53]], 32, 0.34, Math.PI * 2 - 0.68), mat.coat, 0, 0, 0, 0, 0, 0, 1, 1, 0.78);
-  // lapelas e botões
-  for (const s of [-1, 1]) {
-    add(spine, new THREE.BoxGeometry(0.08, 0.26, 0.012), mat.coatD, s * 0.075, 0.36, 0.168, -0.12, s * 0.35, s * 0.22);
-    for (let k = 0; k < 3; k++) add(spine, new THREE.CylinderGeometry(0.011, 0.011, 0.01, 8), mat.button, s * 0.078, 0.06 + k * 0.08, 0.162, Math.PI / 2);
-  }
-  // cachecol
-  add(spine, new THREE.TorusGeometry(0.09, 0.035, 8, 20), mat.scarf, 0, 0.52, 0.01, Math.PI / 2 - 0.15, 0, 0, 1, 0.85, 1);
-  add(spine, new THREE.BoxGeometry(0.06, 0.2, 0.02), mat.scarf, 0.04, 0.4, 0.14, -0.2, 0, 0.12);
-  // gola alta
-  add(spine, lathe([[0.13, 0.48], [0.14, 0.53], [0.155, 0.6], [0.165, 0.64]], 24, 0.5, Math.PI * 2 - 1.0), mat.coat, 0, 0, -0.005, 0, 0, 0, 1, 1, 0.85);
-  // placa do traje nas costas: barra de vida luminosa + tubos de oxigênio
-  const rig = grp(spine, 0, 0, -0.165);
-  add(rig, new THREE.BoxGeometry(0.1, 0.42, 0.03), mat.metalD, 0, 0.25, 0);
+  // tronco: frente, costas e laterais com texturas próprias (ordem: +x, -x, +y, -y, +z, -z)
+  add(spine, new THREE.BoxGeometry(0.38, 0.5, 0.24), [mat.coatSide, mat.coatSide, mat.coat, mat.dark, mat.coatFront, mat.coatBack], 0, 0.25, 0);
+  add(spine, new THREE.BoxGeometry(0.3, 0.1, 0.2), mat.coat, 0, 0.53, -0.01, 0.15);  // gola
   const rigLights = [];
-  for (let k = 0; k < 5; k++) { add(rig, new THREE.BoxGeometry(0.11, 0.012, 0.035), mat.metal, 0, 0.07 + k * 0.08, -0.005); rigLights.push(add(rig, new THREE.BoxGeometry(0.035, 0.05, 0.02), mat.rig, 0, 0.1 + k * 0.08, -0.018)); }
-  add(rig, new THREE.CylinderGeometry(0.035, 0.035, 0.22, 12), mat.metal, 0.085, 0.3, 0.01);
-  add(rig, new THREE.CylinderGeometry(0.035, 0.035, 0.22, 12), mat.metal, -0.085, 0.3, 0.01);
-  for (const s of [-1, 1]) {
-    const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(s * 0.085, 0.42, 0.0), new THREE.Vector3(s * 0.1, 0.52, 0.03), new THREE.Vector3(s * 0.08, 0.6, 0.1), new THREE.Vector3(s * 0.05, 0.62, 0.17)]);
-    add(rig, new THREE.TubeGeometry(curve, 16, 0.012, 6), mat.tube);
-  }
-  // pescoço e cabeça
-  const neck = grp(spine, 0, 0.55, 0.0);
-  add(neck, new THREE.CylinderGeometry(0.05, 0.058, 0.1, 12), mat.skin, 0, 0.03, 0);
+  for (let k = 0; k < 5; k++) rigLights.push(add(spine, new THREE.BoxGeometry(0.05, 0.035, 0.02), mat.rig, 0, 0.44 - k * 0.075, -0.125));
+  const neck = grp(spine, 0, 0.55, 0);
+  add(neck, limb(0.05, 0.055, 0.1), mat.skin, 0, 0.03, 0);
   const head = grp(neck, 0, 0.1, 0.01);
-  add(head, sph(0.105, 24, 18), mat.skin, 0, 0.06, 0, 0, 0, 0, 0.9, 1.08, 1.0);
-  add(head, sph(0.085, 20, 14), mat.skin, 0, -0.005, 0.02, 0, 0, 0, 0.82, 0.78, 0.95);
-  add(head, sph(0.087, 20, 14), new THREE.MeshStandardMaterial({ color: 0x3a2e26, transparent: true, opacity: 0.35, roughness: 1 }), 0, -0.012, 0.021, 0, 0, 0, 0.83, 0.74, 0.95); // barba por fazer
-  add(head, new THREE.ConeGeometry(0.018, 0.05, 8), mat.skin, 0, 0.035, 0.105, Math.PI / 2 + 0.3);
-  add(head, sph(0.014, 10, 8), mat.skin, 0, 0.018, 0.112);
-  for (const s of [-1, 1]) {
-    add(head, sph(0.026, 12, 10), mat.skin, s * 0.094, 0.05, -0.005, 0, 0, 0, 0.45, 1, 0.75);
-    add(head, sph(0.017, 12, 10), mat.eyeW, s * 0.036, 0.065, 0.083);
-    add(head, sph(0.009, 10, 8), mat.iris, s * 0.036, 0.065, 0.097);
-    add(head, sph(0.0045, 8, 6), mat.pupil, s * 0.036, 0.065, 0.105);
-    add(head, new THREE.BoxGeometry(0.04, 0.009, 0.015), mat.hair, s * 0.037, 0.089, 0.094, 0, 0, s * -0.12);
-    add(head, new THREE.BoxGeometry(0.036, 0.012, 0.01), mat.skinD, s * 0.036, 0.047, 0.094, 0.3);  // olheiras
-    add(head, new THREE.BoxGeometry(0.03, 0.004, 0.02), mat.skinD, s * 0.036, 0.075, 0.094, -0.3); // pálpebra
-  }
-  add(head, new THREE.BoxGeometry(0.04, 0.007, 0.012), mat.lip, 0, -0.022, 0.093);
-  add(head, new THREE.BoxGeometry(0.004, 0.035, 0.004), new THREE.MeshStandardMaterial({ color: 0x6e2a20 }), 0.052, 0.02, 0.09, 0, 0, 0.3); // corte na bochecha
-  // cabelo: calota + mechas
-  add(head, new THREE.SphereGeometry(0.113, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.52), mat.hair, 0, 0.07, -0.008, -0.25, 0, 0, 0.94, 1.02, 1.05);
-  for (let k = 0; k < 46; k++) {
-    const th = Math.random() * Math.PI * 2, ph = Math.random() * 0.95;
-    const front = Math.cos(th) > 0.55 && ph > 0.55;
-    if (front && Math.random() < 0.7) continue;
-    const dir = new THREE.Vector3(Math.sin(ph) * Math.sin(th), Math.cos(ph), Math.sin(ph) * Math.cos(th));
-    const m = add(head, new THREE.ConeGeometry(0.02 + Math.random() * 0.02, 0.07 + Math.random() * 0.07, 6), Math.random() < 0.5 ? mat.hair : mat.hair2, dir.x * 0.1, 0.07 + dir.y * 0.1, dir.z * 0.1 - 0.01);
-    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().add(new THREE.Vector3(0, -0.35, -0.5)).normalize());
-  }
-  for (let k = 0; k < 5; k++) { const m = add(head, new THREE.ConeGeometry(0.012, 0.09, 5), mat.hair, -0.05 + k * 0.025, 0.13, 0.085, 0, 0, 0); m.rotation.set(1.9 + Math.random() * 0.4, 0, (Math.random() - 0.5) * 0.6); }
-
-  // braços
+  add(head, new THREE.BoxGeometry(0.19, 0.23, 0.2), [mat.headSide, mat.headSide, mat.hair, mat.skin, mat.face, mat.hair], 0, 0.08, 0);
+  add(head, new THREE.BoxGeometry(0.2, 0.06, 0.2), mat.hair, 0, 0.2, -0.01);
+  [[-0.06, 0.22, -0.04, -0.4, 0.3], [0.05, 0.23, -0.02, -0.3, -0.4], [0, 0.21, -0.1, -1.0, 0], [0.07, 0.2, 0.06, 0.4, -0.3], [-0.07, 0.2, 0.07, 0.5, 0.3]].forEach(([x, y, z, rx, rz]) => add(head, new THREE.ConeGeometry(0.045, 0.1, 4), mat.hair, x, y, z, rx, 0, rz));
+  add(head, new THREE.BoxGeometry(0.04, 0.05, 0.03), mat.skin, 0, 0.05, 0.11); // nariz
   const arms = [];
   for (const s of [-1, 1]) {
-    const sh = grp(spine, s * 0.215, 0.46, -0.005);
-    add(sh, sph(0.075, 14, 10), mat.coat, 0, 0, 0, 0, 0, 0, 1.1, 0.85, 1);
-    add(sh, cap(0.062, 0.2), mat.coat, 0, -0.15, 0);
+    const sh = grp(spine, s * 0.23, 0.46, 0);
+    add(sh, new THREE.BoxGeometry(0.13, 0.1, 0.16), mat.coat, 0, 0.0, 0);
+    add(sh, limb(0.062, 0.055, 0.3), mat.coat, 0, -0.15, 0);
     const el = grp(sh, 0, -0.3, 0);
-    add(el, cap(0.054, 0.18), mat.coat, 0, -0.12, 0);
-    add(el, new THREE.TorusGeometry(0.056, 0.016, 8, 16), mat.coatD, 0, -0.235, 0, Math.PI / 2);
-    const hand = grp(el, 0, -0.27, 0.0);
-    add(hand, new THREE.BoxGeometry(0.06, 0.085, 0.03), mat.glove, 0, -0.03, 0.005);
-    for (let f = 0; f < 4; f++) add(hand, cap(0.009, 0.05, 6), mat.glove, -0.021 + f * 0.014, -0.095 - (f === 1 || f === 2 ? 0.006 : 0), 0.012, 0.35);
-    add(hand, cap(0.01, 0.04, 6), mat.glove, s * -0.035, -0.045, 0.02, 0.5, 0, s * 0.6);
+    add(el, limb(0.055, 0.05, 0.25), mat.coat, 0, -0.12, 0);
+    add(el, limb(0.062, 0.062, 0.04, 5), mat.dark, 0, -0.24, 0);
+    const hand = grp(el, 0, -0.27, 0);
+    add(hand, new THREE.BoxGeometry(0.07, 0.1, 0.045), mat.glove, 0, -0.04, 0.005);
+    add(hand, new THREE.BoxGeometry(0.025, 0.05, 0.03), mat.glove, s * -0.04, -0.03, 0.02, 0, 0, s * 0.4);
     arms.push({ sh, el, hand, s });
   }
-  // pernas
   const legs = [];
   for (const s of [-1, 1]) {
     const th = grp(hips, s * 0.09, -0.02, 0);
-    add(th, cap(0.075, 0.3), mat.pants, 0, -0.21, 0);
+    add(th, limb(0.078, 0.065, 0.44), mat.pants, 0, -0.22, 0);
     const kn = grp(th, 0, -0.44, 0);
-    add(kn, sph(0.062, 12, 10), mat.pants, 0, 0, 0.005);
-    add(kn, cap(0.058, 0.3), mat.pants, 0, -0.2, 0);
+    add(kn, limb(0.064, 0.056, 0.4), mat.pants, 0, -0.2, 0);
     const ft = grp(kn, 0, -0.43, 0);
-    add(ft, new THREE.CylinderGeometry(0.064, 0.07, 0.14, 14), mat.boot, 0, 0.02, 0);
-    add(ft, new THREE.BoxGeometry(0.105, 0.075, 0.24), mat.boot, 0, -0.05, 0.05);
-    add(ft, sph(0.055, 12, 8), mat.boot, 0, -0.05, 0.16, 0, 0, 0, 0.95, 0.7, 1);
-    add(ft, new THREE.BoxGeometry(0.115, 0.022, 0.27), mat.sole, 0, -0.092, 0.055);
-    for (let k = 0; k < 3; k++) add(ft, new THREE.BoxGeometry(0.06, 0.006, 0.01), mat.leather, 0, -0.02 + k * 0.004, 0.09 + k * 0.03, -0.9);
+    add(ft, new THREE.BoxGeometry(0.12, 0.14, 0.26), [mat.boot, mat.boot, mat.dark, mat.dark, mat.boot, mat.boot], 0, -0.04, 0.045);
     legs.push({ th, kn, ft, s });
   }
   return { root, body, hips, spine, neck, head, skirt, arms, legs, rigLights, mat, shadowed };
@@ -1185,9 +1181,9 @@ function buildCharacter() {
 function initThree() {
   if (!window.THREE) return;
   try {
-    const r = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
-    r.setPixelRatio(1); r.setSize(CW, CH, false);
-    r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+    const r = new THREE.WebGLRenderer({ alpha: true, antialias: false, preserveDrawingBuffer: true });
+    r.setPixelRatio(1); r.setSize(PS1_W, PS1_H, false);
+    r.shadowMap.enabled = true; r.shadowMap.type = THREE.BasicShadowMap;
     r.outputEncoding = THREE.sRGBEncoding; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.8;
     const scene = new THREE.Scene();
     const cam = new THREE.OrthographicCamera(-ORIGIN_PX[0] / PXM, (CW - ORIGIN_PX[0]) / PXM, ORIGIN_PX[1] / PXM, -(CH - ORIGIN_PX[1]) / PXM, 0.1, 200);
@@ -1196,7 +1192,7 @@ function initThree() {
     scene.add(new THREE.HemisphereLight(0x8fa9a1, 0x140f0a, 0.4));
     const key = new THREE.DirectionalLight(0xffd9a0, 0.95);
     key.position.set(3.2, 7, 5.5); key.target.position.set(2.2, 0, 2.2); key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 0.5, far: 30 }); key.shadow.bias = -0.0008; key.shadow.radius = 4;
+    key.shadow.mapSize.set(256, 256); Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 0.5, far: 30 }); key.shadow.bias = -0.0008; key.shadow.radius = 4;
     scene.add(key, key.target);
     const rim = new THREE.DirectionalLight(0x6fb3a8, 0.55); rim.position.set(-3, 3, -4); scene.add(rim);
     const red = new THREE.PointLight(0xff3020, 0, 9, 1.6);
@@ -1205,14 +1201,33 @@ function initThree() {
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.ShadowMaterial({ opacity: 0.5 }));
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
     const ch = buildCharacter(); scene.add(ch.root);
-    const pr = new THREE.WebGLRenderer({ canvas: $("portrait"), alpha: false, antialias: true });
-    pr.setPixelRatio(1); pr.setSize(110, 130, false); pr.outputEncoding = THREE.sRGBEncoding; pr.toneMapping = THREE.ACESFilmicToneMapping; pr.toneMappingExposure = 0.9; pr.setClearColor(0x16201e);
+    const pr = new THREE.WebGLRenderer({ canvas: $("portrait"), alpha: false, antialias: false });
+    pr.setPixelRatio(1); pr.setSize(55, 65, false); pr.outputEncoding = THREE.sRGBEncoding; pr.toneMapping = THREE.ACESFilmicToneMapping; pr.toneMappingExposure = 0.9; pr.setClearColor(0x16201e);
     const pcam = new THREE.PerspectiveCamera(20, 110 / 130, 0.05, 10);
     Object.assign(G3, { ok: true, r, scene, cam, red, term, key, ch, pr, pcam, ray: new THREE.Raycaster(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), yaw: 0, phase: 0, look: 0 });
     G3.red.position.copy(worldAt(...P(826, 95), 2.35));
     G3.term.position.copy(worldAt(...P(345, 440), 1.05)).add(new THREE.Vector3(0.35, 0, 0.35));
   } catch (e) { console.error(e); G3.ok = false; }
 }
+/* ---------- Filtro PS1 na tela inteira: 320×180, cores de 15 bits, pontilhado ---------- */
+const PS1 = { on: true, c: null, g: null };
+try { PS1.on = localStorage.getItem("sinal-ps1") !== "0"; } catch (_) {}
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+function ps1Filter() {
+  if (!PS1.c) { PS1.c = mk(PS1_W, PS1_H); PS1.g = PS1.c.getContext("2d", { willReadFrequently: true }); }
+  const g = PS1.g; g.imageSmoothingEnabled = true;
+  g.drawImage(cv, 0, 0, PS1_W, PS1_H);
+  const im = g.getImageData(0, 0, PS1_W, PS1_H), d = im.data;
+  for (let y = 0, i = 0; y < PS1_H; y++) for (let x = 0; x < PS1_W; x++, i += 4) {
+    const b = (BAYER[(y & 3) * 4 + (x & 3)] / 16 - 0.5) * 8;
+    d[i] = (Math.min(255, Math.max(0, d[i] + b)) >> 3) << 3;
+    d[i + 1] = (Math.min(255, Math.max(0, d[i + 1] + b)) >> 3) << 3;
+    d[i + 2] = (Math.min(255, Math.max(0, d[i + 2] + b)) >> 3) << 3;
+  }
+  g.putImageData(im, 0, 0);
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(PS1.c, 0, 0, CW, CH); ctx.restore();
+}
+
 /* ---------- Modelo externo (.glb gerado no Higgsfield) ---------- */
 const GLB_HEIGHT = 1.78;
 function useGLB(gltf, label) {
@@ -1263,8 +1278,11 @@ function render3D(dt, beam, flick, moving) {
   let dy = G3.yaw - ch.root.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
   ch.root.rotation.y += dy * Math.min(1, dt / 120);
   // ciclo de caminhada procedural
-  const tt = T / 1000;
-  if (moving) G3.phase += dt / 1000 * 7.2;
+  G3.acc = (G3.acc || 0) + dt;
+  const poseDt = G3.acc >= 66 ? G3.acc : 0;           // pose atualizada a ~15 fps, como no PS1
+  if (poseDt) G3.acc = 0;
+  const tt = Math.floor(T / 66) * 0.066;
+  if (moving && poseDt) G3.phase += poseDt / 1000 * 7.2;
   const amt = moving ? 1 : 0, s = Math.sin(G3.phase), c = Math.cos(G3.phase);
   G3.walk = (G3.walk || 0) + (amt - (G3.walk || 0)) * Math.min(1, dt / 150);
   const wk = G3.walk;
@@ -1313,7 +1331,7 @@ function render3D(dt, beam, flick, moving) {
     const hp = new THREE.Vector3();
     if (G3.glb) { ch.root.getWorldPosition(hp); hp.y += G3.glb.height - 0.1; } else { ch.head.getWorldPosition(hp); hp.y += 0.03; }
     const fwd = new THREE.Vector3(Math.sin(ch.root.rotation.y + ch.neck.rotation.y), 0, Math.cos(ch.root.rotation.y + ch.neck.rotation.y));
-    G3.pcam.position.copy(hp).addScaledVector(fwd, 0.85).add(new THREE.Vector3(0.12, 0.04, 0));
+    G3.pcam.position.copy(hp).addScaledVector(fwd, 1.25).add(new THREE.Vector3(0.12, 0.04, 0));
     G3.pcam.lookAt(hp.x, hp.y - 0.06, hp.z);
     G3.pr.render(G3.scene, G3.pcam);
   }
@@ -1355,7 +1373,7 @@ function drawScene() {
   if (flick < 1) { ctx.save(); ctx.globalAlpha = 0.5; poly(ctx, [[305, 405], [385, 396], [390, 478], [312, 492]].map(p => P(...p)), "#06120a"); ctx.restore(); }
   if ((T % 9000) < 1600 && Math.floor(T / 180) % 7) { ctx.fillStyle = "#e6b83a"; ctx.fillRect(...P(495, 168), 4, 3); ctx.fillRect(...P(522, 160), 4, 3); }
   const gl = render3D(DT, beam, flick, !!S.target);
-  if (gl) ctx.drawImage(gl, 0, 0);
+  if (gl) { ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(gl, 0, 0, CW, CH); ctx.restore(); }
   else {
     const px = S.pos.x, py = S.pos.y;
     ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = "#040505"; ctx.beginPath(); ctx.ellipse(px + 8, py, 46, 16, 0.2, 0, 7); ctx.fill(); ctx.restore();
@@ -1443,6 +1461,7 @@ function frame(now) {
   if (S.paused && S.timerOn) { ctx.save(); ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(0, 0, CW, CH); ctx.font = '700 64px "Barlow Condensed", Arial'; ctx.textAlign = "center"; ctx.fillStyle = "#ddd5c4"; ctx.fillText("PAUSADO", 640, 380); ctx.restore(); }
   if (S.fadeOut) S.fade = Math.min(1, (S.fade || 0) + 0.015);
   else if (S.fade > 0) S.fade = Math.max(0, S.fade - 0.02);
+  if (PS1.on) ps1Filter();
   if (S.fade > 0) { ctx.save(); ctx.globalAlpha = S.fade; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, CW, CH); ctx.restore(); }
   requestAnimationFrame(frame);
 }
@@ -1499,6 +1518,11 @@ $("jBtn").addEventListener("click", () => { $("journal").hidden = !$("journal").
 $("journal").addEventListener("click", () => { $("journal").hidden = true; });
 $("pBtn").addEventListener("click", e => { if (!S.timerOn) return; S.paused = !S.paused; e.currentTarget.textContent = S.paused ? "CONTINUAR" : "PAUSAR"; e.currentTarget.classList.toggle("on", S.paused); });
 $("sBtn").addEventListener("click", e => { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.6; e.currentTarget.classList.toggle("on", muted); e.currentTarget.textContent = muted ? "SEM SOM" : "SOM"; });
+$("psBtn").classList.toggle("on", PS1.on);
+$("psBtn").addEventListener("click", e => {
+  PS1.on = !PS1.on; e.currentTarget.classList.toggle("on", PS1.on);
+  try { localStorage.setItem("sinal-ps1", PS1.on ? "1" : "0"); } catch (_) {}
+});
 $("mBtn").addEventListener("click", () => {
   if (G3.glb) { G3.glb.turn.rotation.y += Math.PI / 2; return; }
   $("glbFile").click();
