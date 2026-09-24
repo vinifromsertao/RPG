@@ -1,0 +1,1222 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sinal Morto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --void:#05070a;
+    --hull:#0e141b;
+    --plate:#1a232e;
+    --line:#2d3b4b;
+    --text:#d9e4ec;
+    --dim:#7d8fa3;
+    --rig:#5ff0ff;
+    --alarm:#ff3b3b;
+    --amber:#ffb347;
+    --good:#6dff8a;
+    --gold:#ffe066;
+    --pixel:"Press Start 2P", "Courier New", monospace;
+    --crt:"VT323", "Courier New", monospace;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--void); color:var(--text);
+    font-family:var(--crt); font-size:22px; line-height:1.25;
+    padding-inline:16px; padding-block:12px;
+    -webkit-font-smoothing:none;
+  }
+  #game{max-width:980px; margin:0 auto; display:flex; flex-direction:column; gap:10px}
+
+  /* ---------- HUD ---------- */
+  #hud{
+    display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center;
+    font-family:var(--pixel); font-size:10px; letter-spacing:.05em;
+    border:2px solid var(--line); background:var(--hull); padding:8px 10px;
+  }
+  .stat{display:flex; align-items:center; gap:6px}
+  .stat b{color:var(--dim); font-weight:normal}
+  .bar{width:90px; height:10px; background:#000; border:1px solid var(--line); position:relative}
+  .bar i{position:absolute; inset:0 auto 0 0; background:var(--rig); transition:width .5s steps(8)}
+  .bar.o2 i{background:#8fd3ff}
+  .bar.san i{background:#c79bff}
+  .bar.low i{background:var(--alarm); animation:blink .5s steps(2) infinite}
+  .num{min-width:3ch; text-align:right; font-variant-numeric:tabular-nums}
+  #items{color:var(--amber)}
+  #bonus{color:var(--good)}
+  .hud-btns{margin-left:auto; display:flex; gap:6px}
+  .hud-btns button{font-family:var(--pixel); font-size:9px; background:#000; color:var(--dim); border:1px solid var(--line); padding:5px 7px; cursor:pointer}
+  .hud-btns button:hover,.hud-btns button:focus-visible{color:var(--rig); border-color:var(--rig); outline:none}
+
+  /* ---------- Tela ---------- */
+  #screen{position:relative; width:100%; max-width:100%; aspect-ratio:16/9; border:2px solid var(--line); background:#000; overflow:hidden}
+  #cv{width:100%; height:100%; display:block; image-rendering:pixelated; image-rendering:crisp-edges}
+  #screen::after{ /* scanlines */
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(to bottom, rgba(0,0,0,.28) 0 1px, transparent 1px 3px);
+  }
+  #title{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; text-align:center; background:rgba(0,0,0,.35); z-index:2; padding:16px;
+  }
+  #title h1{
+    font-family:var(--pixel); font-weight:normal; margin:0; color:var(--alarm);
+    font-size:clamp(22px,6vw,54px); letter-spacing:.08em; text-shadow:4px 4px 0 #3a0000;
+    animation:flick 4s steps(1) infinite;
+  }
+  #title p{margin:0; font-family:var(--pixel); font-size:clamp(8px,1.4vw,12px); color:var(--dim); letter-spacing:.1em}
+  #title .sub{color:var(--amber)}
+  #startBtn{
+    font-family:var(--pixel); font-size:clamp(10px,1.6vw,14px); background:#000; color:var(--rig);
+    border:3px solid var(--rig); padding:12px 18px; cursor:pointer; margin-top:8px;
+    box-shadow:4px 4px 0 #0a3a40;
+  }
+  #startBtn:hover,#startBtn:focus-visible{background:var(--rig); color:#000; outline:none}
+
+  /* ---------- Caixa de texto ---------- */
+  #box{
+    position:relative; border:4px double var(--line); background:var(--hull);
+    padding:14px 16px 16px; min-height:190px; display:flex; flex-direction:column; gap:10px;
+  }
+  #where{font-family:var(--pixel); font-size:9px; color:var(--dim); letter-spacing:.12em; text-transform:uppercase}
+  #text{font-size:clamp(22px,2.6vw,28px); min-height:2.6em; cursor:pointer; text-wrap:pretty; max-width:62ch}
+  #text.bad{color:#ff8a8a} #text.r1{color:var(--alarm)} #text.r2{color:#ff9a5c} #text.r3{color:var(--amber)}
+  #text.r4{color:var(--text)} #text.r5{color:var(--good)} #text.r6{color:var(--gold); text-shadow:0 0 8px rgba(255,224,102,.5)}
+  #text.clue{color:var(--rig)} #text.fx{color:var(--dim)} #text.item{color:var(--amber)} #text.sys{color:#c79bff}
+  #next{position:absolute; right:14px; bottom:10px; color:var(--rig); font-family:var(--pixel); font-size:12px; animation:blink .8s steps(2) infinite}
+  #panel{display:flex; flex-direction:column; gap:6px}
+
+  .opt{
+    all:unset; cursor:pointer; font-family:var(--crt); font-size:clamp(22px,2.5vw,27px); color:var(--text);
+    padding:2px 8px 2px 30px; position:relative; display:block;
+  }
+  .opt::before{content:"►"; position:absolute; left:6px; color:var(--amber); opacity:0}
+  .opt.sel{color:var(--amber); background:rgba(255,179,71,.08)}
+  .opt.sel::before{opacity:1; animation:blink .6s steps(2) infinite}
+  .opt .tag{color:var(--good); font-size:.8em}
+  .hint{font-family:var(--pixel); font-size:9px; color:var(--dim); line-height:1.7; letter-spacing:.04em}
+
+  .dicebar{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+  .btn{
+    font-family:var(--pixel); font-size:11px; background:#000; color:var(--amber); border:2px solid var(--amber);
+    padding:10px 14px; cursor:pointer; box-shadow:3px 3px 0 #4a2f00;
+  }
+  .btn:hover,.btn:focus-visible{background:var(--amber); color:#000; outline:none}
+  .btn.small{padding:8px 10px; color:var(--text); border-color:var(--line); box-shadow:none}
+  .btn.small:hover,.btn.small:focus-visible{background:var(--text); color:#000}
+  .phys{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+  .phys span{font-family:var(--pixel); font-size:9px; color:var(--dim)}
+
+  .notes{font-size:clamp(20px,2.3vw,25px); color:var(--rig)}
+  .notes li{margin:2px 0}
+  .notes ul{margin:4px 0; padding-left:22px}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; font-family:var(--pixel); font-size:9px; color:var(--dim)}
+  .legend i{display:inline-block; width:10px; height:10px; margin-right:6px; vertical-align:-1px}
+
+  .summary{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:6px 20px; font-size:22px}
+  .summary .k{color:var(--dim)}
+  .rank{font-family:var(--pixel); font-size:12px; color:var(--gold); letter-spacing:.08em; margin:4px 0}
+  table.log{border-collapse:collapse; font-size:20px; width:100%}
+  table.log td{padding:1px 8px 1px 0; vertical-align:top}
+  table.log td.n{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
+  .logwrap{overflow-x:auto}
+
+  @keyframes blink{50%{opacity:0}}
+  @keyframes flick{0%,100%{opacity:1} 3%{opacity:.3} 5%{opacity:1} 62%{opacity:1} 63%{opacity:.5} 64%{opacity:1}}
+  @media (max-width:560px){
+    body{font-size:20px}
+    .bar{width:56px}
+    .hud-btns{margin-left:0}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important; transition:none!important}
+  }
+</style>
+
+<div id="game">
+  <div id="hud" aria-label="Status da equipe">
+    <div class="stat"><b>TRAJE</b><div class="bar" id="bhp"><i></i></div><span class="num" id="nhp">100</span></div>
+    <div class="stat"><b>O2</b><div class="bar o2" id="bo2"><i></i></div><span class="num" id="no2">100</span></div>
+    <div class="stat"><b>MENTE</b><div class="bar san" id="bsan"><i></i></div><span class="num" id="nsan">100</span></div>
+    <div class="stat" id="items"></div>
+    <div class="stat" id="bonus"></div>
+    <div class="hud-btns">
+      <button id="muteBtn" type="button">SOM: ON</button>
+      <button id="fsBtn" type="button">TELA CHEIA</button>
+    </div>
+  </div>
+
+  <div id="screen">
+    <canvas id="cv" width="320" height="180" aria-label="Cena do jogo"></canvas>
+    <div id="title">
+      <h1>SINAL MORTO</h1>
+      <p class="sub">FASE 1 · A CELA</p>
+      <p>UM RPG DE TERROR ESPACIAL · 1 DADO · 5 ESCOLHAS</p>
+      <button id="startBtn" type="button">► INICIAR MISSÃO</button>
+      <p>ESPAÇO / ENTER / CLIQUE PARA AVANÇAR</p>
+    </div>
+  </div>
+
+  <div id="box">
+    <div id="where">CSV TÁRTARO · SISTEMA EM EMERGÊNCIA</div>
+    <div id="text">Aguardando tripulação...</div>
+    <div id="panel"></div>
+    <div id="next" hidden>▼</div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const W = 320, H = 180;
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+const S = {};
+function resetState() {
+  Object.assign(S, {
+    mode: "title", scene: 0, view: "title",
+    hp: 100, o2: 100, san: 100,
+    items: [], nextBonus: 0,
+    code: [], clue: 0, attempts: [], entry: "", screenMsg: null,
+    doorOpen: 0, doorOpening: false,
+    dice: null, shake: 0, flash: null, fade: 1,
+    hover: null, sel: 0, label: "", labelUntil: 0,
+    hand: { x: 250, y: 200, tx: 250, ty: 200 }, pressed: null, pressedUntil: 0,
+    log: [], endT0: 0, keypadLocked: false,
+  });
+  const digits = [0,1,2,3,4,5,6,7,8,9];
+  for (let i = digits.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [digits[i], digits[j]] = [digits[j], digits[i]]; }
+  S.code = digits.slice(0, 4);
+}
+resetState();
+
+/* =========================================================
+   CONTEÚDO — 5 CENAS, 3 OPÇÕES CADA, 6 RESULTADOS POR OPÇÃO
+   fx: hp / o2 / san (variação), clue (0-4, só na cena 1),
+       item (ganha item), next (bônus +1 no próximo dado)
+   ========================================================= */
+const ITEMS = {
+  cortador: "Cortador de plasma",
+  lanterna: "Lanterna de alta potência",
+  cartao:   "Cartão de acesso mestre",
+};
+const RANK = ["DESASTRE", "FRACASSO", "POR UM TRIZ", "SUCESSO", "GRANDE SUCESSO", "EXTRAORDINÁRIO"];
+
+const SCENES = [
+  {
+    view: "cell", name: "Cena 1/5 · Cela de contenção",
+    intro: [
+      "Um alarme distante ecoa pelos corredores da nave mineradora CSV TÁRTARO.",
+      "Vocês acordam no chão gelado de uma cela de contenção. A cabeça lateja.",
+      "As luzes vermelhas piscam. O ar cheira a ferrugem... e a algo pior.",
+      "Há apenas uma saída: uma porta blindada com um teclado numérico.",
+      "No visor, uma mensagem: INSIRA O CÓDIGO DE 4 DÍGITOS.",
+      "Vocês precisam descobrir o código. O que fazem?",
+    ],
+    hint: "Clique nos objetos da cena ou escolha uma opção abaixo.",
+    extra: [
+      { x: 114, y: 36, w: 92, h: 104, label: "PORTA BLINDADA", desc: "Trancada. Só abre com o código." },
+      { x: 14, y: 30, w: 90, h: 24, label: "ESCRITA NA PAREDE", desc: "Escrito com sangue: ELES OUVEM." },
+      { x: 248, y: 22, w: 44, h: 24, label: "DUTO", desc: "Estreito demais. E algo arranhou a grade por dentro." },
+    ],
+    options: [
+      { label: "Examinar o teclado de perto", hot: { x: 206, y: 74, w: 22, h: 28, label: "TECLADO" }, out: [
+        ["Um curto-circuito! Uma descarga elétrica atravessa as luvas. O traje absorve o pior, mas dói.", { hp: -15, clue: 0 }],
+        ["O teclado está coberto de sangue seco. Não dá para ver nada... e a imagem não sai da cabeça.", { san: -10, clue: 0 }],
+        ["Duas teclas estão mais gastas que as outras. Já é um começo.", { clue: 1 }],
+        ["Sob a luz vermelha, quatro teclas brilham de gordura de dedos. São elas!", { clue: 2 }],
+        ["Quatro teclas gastas, e uma digital ensanguentada mostra qual foi apertada primeiro.", { clue: 3 }],
+        ["Atrás da tampa do teclado há um adesivo de manutenção com o código completo. E um cortador de plasma preso ao painel!", { clue: 4, item: "cortador" }],
+      ]},
+      { label: "Religar o terminal quebrado", hot: { x: 34, y: 72, w: 50, h: 44, label: "TERMINAL" }, out: [
+        ["O terminal explode em faíscas e uma fumaça tóxica enche a cela.", { o2: -15, hp: -5, clue: 0 }],
+        ["A tela liga só para repetir uma frase: ELES ESTÃO NAS PAREDES. Depois apaga.", { san: -10, clue: 0 }],
+        ["Fragmentos do registro de acesso: dois números aparecem antes de a tela congelar.", { clue: 1 }],
+        ["O registro de segurança mostra os quatro dígitos usados, embaralhados pela corrupção dos dados.", { clue: 2 }],
+        ["Registro quase intacto: os quatro dígitos e qual deles vem primeiro.", { clue: 3 }],
+        ["O terminal volta com energia total. O código aparece na tela e o sistema reabastece o oxigênio dos trajes.", { clue: 4, o2: 20 }],
+      ]},
+      { label: "Revistar o corpo do engenheiro", hot: { x: 228, y: 132, w: 66, h: 24, label: "CORPO DO ENGENHEIRO" }, out: [
+        ["Quando vocês tocam o corpo, ele se contorce! Foi só um espasmo... não foi? O susto derruba todos.", { san: -15, hp: -5, clue: 0 }],
+        ["Os bolsos estão vazios. Só há arranhões na parede, como se ele tentasse cavar para fora.", { san: -5, clue: 0 }],
+        ["Um bilhete rasgado com dois números rabiscados.", { clue: 1 }],
+        ["Na palma da mão dele, escritos a caneta: quatro números, fora de ordem.", { clue: 2 }],
+        ["Um diário de bolso: \"nunca esqueço por qual número começa\". Com isso, dá para tentar.", { clue: 3 }],
+        ["O crachá do engenheiro tem o código gravado. No cinto, um kit médico intacto!", { clue: 4, hp: 20 }],
+      ]},
+    ],
+  },
+  {
+    view: "corridor", name: "Cena 2/5 · Corredor B-7",
+    intro: [
+      "A porta se abre com um chiado. Adiante, um corredor longo e estreito.",
+      "Metade das lâmpadas está quebrada. A outra metade pisca sem ritmo.",
+      "Um rastro escuro atravessa o chão e sobe até um duto de ventilação.",
+      "Então, um som. Algo se arrastando dentro das paredes.",
+    ],
+    extra: [{ x: 60, y: 150, w: 200, h: 30, label: "RASTRO ESCURO", desc: "Ainda está úmido." }],
+    options: [
+      { label: "Correr até o fim do corredor", hot: { x: 138, y: 60, w: 44, h: 46, label: "PORTA DO FIM" }, out: [
+        ["Alguém escorrega no rastro escuro e todos se chocam contra a parede. Um visor trinca.", { hp: -20 }],
+        ["Vocês correm tanto que o oxigênio dos trajes despenca. Chegam ao fim ofegantes.", { o2: -15 }],
+        ["Chegam do outro lado com o coração na garganta. Nada os seguiu. Por enquanto.", { san: -5 }],
+        ["Uma corrida limpa. A porta do fim se abre sozinha, como se esperasse por vocês.", {}],
+        ["No meio da corrida, vocês apanham um cilindro de oxigênio caído no chão.", { o2: 15 }],
+        ["Vocês passam tão rápido que o duto se fecha atrás, prendendo o que estava lá. Um grito inumano ecoa e silencia.", { san: 10, next: 1 }],
+      ]},
+      { label: "Esconder-se atrás das caixas", hot: { x: 14, y: 94, w: 54, h: 62, label: "CAIXAS DE CARGA" }, out: [
+        ["As caixas desabam com um estrondo metálico. Algo no duto escuta e bate nas paredes, furioso.", { san: -15, hp: -5 }],
+        ["O esconderijo é apertado e escuro. Minutos se passam ouvindo respirações que não são de vocês.", { san: -10 }],
+        ["Uma sombra passa pelo teto e segue adiante. Vocês esperam, e seguem também.", { o2: -5 }],
+        ["Escondidos, vocês veem a criatura sair do duto e ir para o outro lado. Caminho livre.", {}],
+        ["Atrás das caixas há um estoque de suprimentos esquecido.", { hp: 10, o2: 10 }],
+        ["Entre as caixas, uma estação de reparo de trajes ainda funcionando!", { hp: 25, next: 1 }],
+      ]},
+      { label: "Investigar o duto de ventilação", hot: { x: 248, y: 64, w: 38, h: 32, label: "DUTO DE VENTILAÇÃO" }, out: [
+        ["Um braço longo e ossudo sai do duto e agarra uma perna! Vocês puxam com força e se soltam, machucados.", { hp: -20, san: -10 }],
+        ["Olhos amarelos brilham no escuro. Eles piscam. Vocês recuam devagar.", { san: -15 }],
+        ["O duto está vazio, mas o cheiro é insuportável. Alguma coisa mora ali.", { san: -5 }],
+        ["Dentro do duto, um mapa rabiscado da nave indica o caminho até a enfermaria.", {}],
+        ["Presa na grade, uma lanterna de alta potência. Vai ser útil no escuro.", { item: "lanterna" }],
+        ["Vocês soldam a grade com um maçarico esquecido ali. O duto está selado: nada mais sai dele.", { san: 10, next: 1 }],
+      ]},
+    ],
+  },
+  {
+    view: "medbay", name: "Cena 3/5 · Enfermaria",
+    intro: [
+      "A trilha leva até a enfermaria. As macas estão reviradas.",
+      "Um monitor cardíaco ainda apita, ligado a... ninguém.",
+      "Sobre uma das macas, um lençol cobre uma forma humana. Ele parece respirar.",
+      "Num canto, um gravador de áudio pisca em vermelho: 1 MENSAGEM.",
+    ],
+    extra: [
+      { x: 38, y: 36, w: 56, h: 36, label: "MONITOR CARDÍACO", desc: "Os batimentos na tela não param. De quem são?" },
+      { x: 196, y: 44, w: 26, h: 26, label: "MARCAS DE MÃOS", desc: "Mãos ensanguentadas. Dedos compridos demais." },
+    ],
+    options: [
+      { label: "Ouvir o registro de áudio", hot: { x: 150, y: 102, w: 44, h: 22, label: "GRAVADOR" }, out: [
+        ["A gravação é só gritos. Longos, desesperados. Termina com um som úmido.", { san: -20 }],
+        ["Uma voz sussurra números sem sentido e ri. Vocês desligam antes do fim.", { san: -10 }],
+        ["\"...o sinal vem do planeta. Não olhem para ele.\" A gravação corta.", { san: -5 }],
+        ["A médica de bordo explica que a evacuação foi para o HANGAR 3. Há uma nave de fuga lá!", {}],
+        ["O registro indica o caminho mais seguro até o hangar e onde estão os remédios.", { hp: 10, next: 1 }],
+        ["A médica deixou a fórmula de um estimulante. Vocês o preparam e todos se sentem renovados.", { hp: 20, san: 15 }],
+      ]},
+      { label: "Pegar suprimentos médicos", hot: { x: 232, y: 56, w: 58, h: 86, label: "ARMÁRIO MÉDICO" }, out: [
+        ["O armário tinha uma armadilha. Uma seringa quebrada perfura a luva.", { hp: -15, san: -5 }],
+        ["Só frascos vazios e bandagens sujas. A busca consome oxigênio precioso.", { o2: -10 }],
+        ["Algumas bandagens limpas. Ajuda um pouco.", { hp: 5 }],
+        ["Um kit de primeiros socorros completo.", { hp: 15 }],
+        ["Kits médicos e cilindros de oxigênio!", { hp: 15, o2: 15 }],
+        ["Uma câmara de estase médica ainda funciona. Alguns minutos lá dentro e todos saem como novos.", { hp: 30, o2: 20, san: 10 }],
+      ]},
+      { label: "Levantar o lençol da maca", bonusItem: "lanterna", hot: { x: 18, y: 86, w: 94, h: 34, label: "MACA COBERTA" }, out: [
+        ["O corpo se senta de uma vez! Garras rasgam o ar. Vocês fogem feridos, e ele desaba de novo, imóvel.", { hp: -20, san: -15 }],
+        ["Não é humano. Não mais. Vocês nunca vão esquecer aquele rosto.", { san: -20 }],
+        ["Apenas um tripulante sem vida. No bolso dele, uma foto de família.", { san: -5 }],
+        ["Um tripulante em coma induzido, vivo! Ele sussurra: \"hangar... três\".", {}],
+        ["O paciente segura um injetor de adrenalina. Vocês o pegam com cuidado.", { next: 1 }],
+        ["O tripulante acorda por um instante e entrega um cartão de acesso mestre antes de adormecer de novo.", { item: "cartao" }],
+      ]},
+    ],
+  },
+  {
+    view: "void", name: "Cena 4/5 · Anel de observação",
+    intro: [
+      "O caminho até o hangar passa pelo Anel de Observação.",
+      "Metade da parede sumiu. Não há gravidade. Não há som.",
+      "Lá fora, um planeta partido ao meio flutua em silêncio, sangrando luz vermelha.",
+      "Destroços, e outras coisas, giram devagar no vazio. Vocês precisam atravessar.",
+    ],
+    extra: [{ x: 170, y: 20, w: 110, h: 96, label: "PLANETA PARTIDO", desc: "Olhar para ele dá dor de cabeça. E vontade de continuar olhando." }],
+    options: [
+      { label: "Impulsionar-se pelo vazio", hot: { x: 112, y: 136, w: 96, h: 44, label: "O VAZIO" }, out: [
+        ["O salto sai torto. Vocês giram sem controle e batem num destroço. O traje dispara alarmes.", { hp: -20, o2: -10 }],
+        ["Vocês chegam, mas gastam muito oxigênio nos propulsores das botas.", { o2: -20 }],
+        ["Um corpo congelado passa a centímetros do visor. Vocês chegam, trêmulos.", { san: -10 }],
+        ["Um salto preciso. Vocês flutuam até o outro lado em perfeito silêncio.", {}],
+        ["No caminho, vocês agarram um tanque de oxigênio que flutuava por ali.", { o2: 20 }],
+        ["Um salto perfeito, digno de astronauta de elite. De quebra, avistam o Hangar 3 com as luzes acesas!", { san: 15, next: 1 }],
+      ]},
+      { label: "Prender-se ao cabo de segurança", hot: { x: 104, y: 118, w: 112, h: 16, label: "CABO DE SEGURANÇA" }, out: [
+        ["O cabo se rompe no meio do caminho! Vocês se agarram à estrutura por um triz.", { hp: -10, san: -15 }],
+        ["O cabo está emaranhado em destroços. Soltá-lo leva tempo demais.", { o2: -15 }],
+        ["Travessia lenta, mas segura.", { o2: -5 }],
+        ["O cabo aguenta firme. Vocês atravessam juntos, em fila.", {}],
+        ["Presos ao cabo, vocês ainda recolhem peças para reparar os trajes.", { hp: 15 }],
+        ["O cabo tem um carrinho de transporte! Vocês deslizam até o outro lado sem esforço.", { hp: 10, o2: 10, next: 1 }],
+      ]},
+      { label: "Religar a gravidade no painel", hot: { x: 276, y: 92, w: 32, h: 40, label: "PAINEL DE GRAVIDADE" }, out: [
+        ["A gravidade volta de uma vez, com vocês a três metros do chão.", { hp: -20 }],
+        ["O painel dá choque e a gravidade oscila, jogando todos de um lado para o outro.", { hp: -10, san: -5 }],
+        ["A gravidade volta aos poucos. Tudo o que flutuava cai, inclusive coisas que vocês preferiam não ver.", { san: -10 }],
+        ["Gravidade restaurada. Vocês atravessam com as botas magnéticas.", {}],
+        ["O painel também reativa o ar da seção! Vocês recarregam os tanques.", { o2: 20 }],
+        ["O painel religa o setor inteiro: luzes, ar e gravidade. Pela primeira vez, a nave parece segura.", { o2: 20, san: 15 }],
+      ]},
+    ],
+  },
+  {
+    view: "hangar", name: "Cena 5/5 · Hangar 3",
+    intro: [
+      "O Hangar 3. Uma pequena nave de fuga espera com as luzes de embarque acesas.",
+      "Mas entre vocês e a rampa há algo.",
+      "Uma silhueta alta, magra demais, com membros que dobram para o lado errado.",
+      "Ela ainda não os viu. Esta é a última escolha.",
+    ],
+    extra: [],
+    options: [
+      { label: "Afugentar a criatura com o cortador de plasma", bonusItem: "cortador", hot: { x: 94, y: 44, w: 48, h: 78, label: "A CRIATURA" }, out: [
+        ["O cortador engasga. A criatura derruba todos com um golpe. Vocês se arrastam até a rampa, feridos, mas vivos.", { hp: -25, san: -10 }],
+        ["O disparo erra. A criatura grita, um som que parece vir de dentro da cabeça. Vocês correm para a nave.", { san: -20 }],
+        ["Um tiro de raspão a faz recuar para as sombras. Vocês embarcam às pressas.", { san: -5 }],
+        ["Um disparo certeiro num dos membros. A criatura foge pelo duto. Caminho livre.", {}],
+        ["Dois disparos precisos! A criatura cai e não se levanta. Vocês embarcam com calma.", { san: 10 }],
+        ["Um único disparo corta os membros da criatura, a regra de ouro da sobrevivência. Ela desaba. A tripulação comemora!", { san: 20, hp: 10 }],
+      ]},
+      { label: "Correr direto para a nave de fuga", bonusItem: "cartao", hot: { x: 196, y: 82, w: 112, h: 58, label: "NAVE DE FUGA" }, out: [
+        ["A criatura percebe e salta! Garras arranham os trajes. Vocês fecham a escotilha no último segundo.", { hp: -25 }],
+        ["A rampa está travada. Vocês a forçam enquanto a criatura se aproxima. Conseguem, por pouco.", { san: -15, o2: -10 }],
+        ["Vocês embarcam. A criatura bate no casco uma, duas vezes... e para.", { san: -5 }],
+        ["Uma corrida silenciosa e perfeita. A escotilha se fecha antes que ela perceba.", {}],
+        ["Vocês embarcam e ligam os motores. O calor da decolagem afasta a criatura.", { san: 10 }],
+        ["O jato dos motores lança a criatura para o vácuo pelas portas do hangar. Adeus!", { san: 20 }],
+      ]},
+      { label: "Criar uma distração e enviar um sinal de socorro", hot: { x: 10, y: 94, w: 46, h: 40, label: "CONSOLE DE COMUNICAÇÃO" }, out: [
+        ["O transmissor chia alto demais. A criatura se vira para vocês. Todos correm feridos até a nave.", { hp: -20, san: -10 }],
+        ["A distração falha e o sinal não sai. Vocês embarcam às cegas.", { san: -10 }],
+        ["Uma lata arremessada a distrai. Vocês embarcam, mas sem tempo para o sinal.", {}],
+        ["Distração perfeita e sinal enviado. Alguém, em algum lugar, vai ouvir.", { san: 5 }],
+        ["O sinal é respondido na hora: uma nave de resgate está a caminho!", { san: 15 }],
+        ["A distração atrai a criatura para a câmara de descompressão. Vocês a ejetam no espaço, e o resgate confirma: estão salvos!", { san: 20, hp: 10 }],
+      ]},
+    ],
+  },
+];
+
+const ENDING = [
+  "Os motores rugem. A nave de fuga atravessa as portas do hangar e mergulha no escuro.",
+  "Pela janela, a CSV TÁRTARO fica cada vez menor.",
+  "Todos sobreviveram. Por enquanto.",
+  "Mas no painel da nave, uma luz começa a piscar...",
+  { t: "SINAL DESCONHECIDO DETECTADO. ORIGEM: A BORDO.", cls: "r1" },
+];
+
+/* =========================================================
+   ÁUDIO 8-BIT (Web Audio)
+   ========================================================= */
+let AC = null, master = null, muted = false, noiseBuf = null, ambTimer = null;
+function initAudio() {
+  if (AC) { AC.resume(); return; }
+  const Ctor = window.AudioContext || window.webkitAudioContext;
+  if (!Ctor) return;
+  AC = new Ctor();
+  master = AC.createGain(); master.gain.value = 0.55; master.connect(AC.destination);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
+  const a = noiseBuf.getChannelData(0);
+  let hold = 0;
+  for (let i = 0; i < a.length; i++) { if (i % 6 === 0) hold = Math.random() * 2 - 1; a[i] = hold; } // ruído "crocante"
+}
+function tone(f, d, type = "square", v = 0.1, w = 0, f2 = null) {
+  if (!AC) return;
+  const t0 = AC.currentTime + w;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t0);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + d);
+  g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+  o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + d + 0.03);
+}
+function noise(d, v = 0.1, ff = 2000, w = 0, ff2 = null, ftype = "lowpass") {
+  if (!AC) return;
+  const t0 = AC.currentTime + w;
+  const s = AC.createBufferSource(); s.buffer = noiseBuf;
+  const f = AC.createBiquadFilter(); f.type = ftype; f.frequency.setValueAtTime(ff, t0);
+  if (ff2) f.frequency.exponentialRampToValueAtTime(ff2, t0 + d);
+  const g = AC.createGain(); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t0); s.stop(t0 + d + 0.03);
+}
+const SFX = {
+  type()   { tone(420 + Math.random() * 60, 0.035, "square", 0.035); },
+  move()   { tone(740, 0.04, "square", 0.06); },
+  confirm(){ tone(660, 0.06, "square", 0.08); tone(990, 0.09, "square", 0.08, 0.06); },
+  tick()   { noise(0.03, 0.12, 3500); tone(200 + Math.random() * 300, 0.02, "square", 0.03); },
+  key()    { tone(1250, 0.07, "square", 0.07); },
+  error()  { tone(130, 0.3, "sawtooth", 0.13); tone(138, 0.3, "square", 0.08); },
+  success(){ [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.12, "square", 0.08, i * 0.08)); },
+  door()   { noise(1.5, 0.22, 250, 0, 3000); tone(80, 1.4, "sawtooth", 0.07, 0, 38); },
+  whoosh() { noise(0.8, 0.15, 3000, 0, 200); },
+  result(n) {
+    if (n === 1) { tone(220, 1.2, "sawtooth", 0.11, 0, 100); tone(233, 1.2, "sawtooth", 0.11, 0, 104); tone(311, 1, "square", 0.05, 0, 140); noise(0.7, 0.3, 900, 0, 90); }
+    else if (n === 2) { tone(196, 0.35, "square", 0.09, 0, 150); tone(185, 0.5, "square", 0.08, 0.2, 90); }
+    else if (n === 3) { tone(330, 0.12, "square", 0.08); tone(294, 0.22, "square", 0.08, 0.12); }
+    else if (n === 4) { tone(440, 0.1, "square", 0.08); tone(587, 0.18, "square", 0.08, 0.1); }
+    else if (n === 5) { [523, 659, 784].forEach((f, i) => tone(f, 0.14, "square", 0.08, i * 0.09)); }
+    else { [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, i) => tone(f, 0.12, "square", 0.08, i * 0.08)); tone(1568, 0.6, "triangle", 0.1, 0.58); }
+  },
+};
+function startAmbient() {
+  if (!AC || ambTimer) return;
+  const g = AC.createGain(); g.gain.value = 0.045;
+  const f = AC.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 170;
+  const o1 = AC.createOscillator(); o1.type = "sawtooth"; o1.frequency.value = 55;
+  const o2 = AC.createOscillator(); o2.type = "square"; o2.frequency.value = 77.8; // trítono: tensão
+  const lfo = AC.createOscillator(); lfo.frequency.value = 0.07;
+  const lg = AC.createGain(); lg.gain.value = 80;
+  lfo.connect(lg); lg.connect(f.frequency);
+  o1.connect(f); o2.connect(f); f.connect(g); g.connect(master);
+  o1.start(); o2.start(); lfo.start();
+  const ev = () => {
+    const r = Math.random();
+    if (S.mode !== "title") {
+      if (r < 0.3) tone(320, 0.9, "sawtooth", 0.035, 0, 90);           // rangido metálico
+      else if (r < 0.55) tone(70, 0.35, "sine", 0.28, 0, 38);          // pancada distante
+      else if (r < 0.75) noise(0.7, 0.05, 1300, 0, 700, "bandpass");   // sussurro
+      else { tone(180, 0.08, "square", 0.05); tone(191, 0.1, "square", 0.04, 0.09); }
+      if (S.san < 40) { tone(58, 0.14, "sine", 0.35, 0.2); tone(55, 0.14, "sine", 0.3, 0.45); } // coração
+    }
+    ambTimer = setTimeout(ev, 5000 + Math.random() * 7000);
+  };
+  ambTimer = setTimeout(ev, 3000);
+}
+
+/* =========================================================
+   DESENHO — utilitários
+   ========================================================= */
+let T = 0;
+function R(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.floor(x), Math.floor(y), Math.ceil(w), Math.ceil(h)); }
+function txt(s, x, y, c, align = "left", size = 8) {
+  ctx.font = size + 'px "Press Start 2P", monospace';
+  ctx.textAlign = align; ctx.textBaseline = "top"; ctx.fillStyle = c;
+  ctx.fillText(s, Math.floor(x), Math.floor(y));
+}
+function alpha(a, fn) { ctx.save(); ctx.globalAlpha = a; fn(); ctx.restore(); }
+function disc(cx, cy, r, c) { for (let dy = -r; dy <= r; dy++) { const w = Math.floor(Math.sqrt(r * r - dy * dy)); R(cx - w, cy + dy, w * 2 + 1, 1, c); } }
+function hash(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
+const STARS = Array.from({ length: 90 }, (_, i) => ({ x: hash(i) * W, y: hash(i + 99) * H, b: hash(i + 7), s: 0.2 + hash(i + 3) }));
+function stars(x0, y0, w, h, drift = 0) {
+  for (const s of STARS) {
+    const x = x0 + ((s.x + drift * s.s) % w + w) % w, y = y0 + (s.y % h);
+    const tw = Math.sin(T / 400 + s.b * 20) > 0.6 ? 1 : 0;
+    R(x, y, 1, 1, s.b > 0.8 || tw ? "#e8f2ff" : "#56657a");
+  }
+}
+function flicker(seed, rate = 90) { return hash(Math.floor(T / rate) + seed * 31) > 0.12; }
+function brackets(h, c) {
+  const { x, y, w } = h, hh = h.h, L = 5;
+  R(x, y, L, 1, c); R(x, y, 1, L, c); R(x + w - L, y, L, 1, c); R(x + w - 1, y, 1, L, c);
+  R(x, y + hh - 1, L, 1, c); R(x, y + hh - L, 1, L, c); R(x + w - L, y + hh - 1, L, 1, c); R(x + w - 1, y + hh - L, 1, L, c);
+}
+
+/* Tripulante visto de costas, com a barra de vida na coluna do traje */
+const CREW = ["#ff8c1a", "#39d98a", "#4fc3ff"];
+function crewMember(x, y, accent, phase, float = 0) {
+  const bob = Math.round(Math.sin(T / 450 + phase) * (float ? 3 : 0.6));
+  y += bob;
+  const suit = "#4a4034", dark = "#2c261e";
+  R(x - 5, y - 12, 4, 11, dark); R(x + 1, y - 12, 4, 11, dark);
+  R(x - 6, y - 3, 5, 3, "#1a1714"); R(x + 1, y - 3, 5, 3, "#1a1714");
+  R(x - 7, y - 28, 14, 17, suit);
+  R(x - 10, y - 28, 4, 6, dark); R(x + 6, y - 28, 4, 6, dark);
+  R(x - 10, y - 28, 4, 1, accent); R(x + 6, y - 28, 4, 1, accent);
+  R(x - 10, y - 22, 3, 11, dark); R(x + 7, y - 22, 3, 11, dark);
+  R(x - 4, y - 27, 8, 13, "#23201b");
+  // barra de vida (coluna)
+  const frac = S.hp / 100, col = frac > 0.5 ? "#5ff0ff" : frac > 0.25 ? "#ffe066" : "#ff3b3b";
+  R(x - 1, y - 26, 3, 11, "#081418");
+  const fill = Math.max(1, Math.round(11 * frac));
+  const on = frac > 0.25 || Math.floor(T / 250) % 2;
+  if (on) R(x - 1, y - 26 + (11 - fill), 3, fill, col);
+  for (let k = 0; k < 4; k++) R(x - 1, y - 24 + k * 3, 3, 1, "#081418");
+  // capacete segmentado
+  R(x - 5, y - 38, 10, 10, "#3a3f45");
+  R(x - 5, y - 35, 10, 1, "#24282d"); R(x - 5, y - 32, 10, 1, "#24282d");
+  R(x - 3, y - 38, 6, 1, "#5d646c");
+  R(x - 6, y - 34, 1, 4, accent); R(x + 5, y - 34, 1, 4, accent);
+}
+function crewRow(xs, y, float = 0) { xs.forEach((x, i) => crewMember(x, y, CREW[i], i * 1.7, float)); }
+
+/* =========================================================
+   CENAS
+   ========================================================= */
+function drawCell() {
+  R(0, 0, W, H, "#0d1117");
+  for (let x = 0; x < W; x += 40) { R(x, 0, 1, 140, "#1c242e"); R(x + 1, 0, 1, 140, "#07090c"); }
+  for (let y = 20; y < 140; y += 40) R(0, y, W, 1, "#1a212b");
+  for (let x = 6; x < W; x += 40) for (let y = 26; y < 140; y += 40) { R(x, y, 1, 1, "#2a3440"); R(x + 28, y, 1, 1, "#2a3440"); }
+  R(0, 6, W, 5, "#1f2730"); R(0, 7, W, 1, "#2c3642");
+  R(0, 140, W, 40, "#0a0c0f"); R(0, 140, W, 2, "#232b35");
+  for (let x = 0; x < W; x += 8) R(x, 142, 1, 38, "#12161b");
+  for (let y = 150; y < H; y += 8) R(0, y, W, 1, "#101318");
+
+  // luz de alarme
+  const on = flicker(1, 120) && Math.sin(T / 300) > -0.3;
+  R(138, 11, 44, 4, "#2a2f36");
+  R(140, 15, 40, 2, on ? "#ff3030" : "#4a1010");
+  if (on) alpha(0.10 + 0.05 * Math.sin(T / 200), () => { for (let r = 70; r > 0; r -= 10) disc(160, 18, r, "#ff2020"); });
+
+  // escrita na parede
+  txt("ELES OUVEM", 18, 36, "#6b1010");
+  [22, 41, 58, 75, 90].forEach((x, i) => R(x, 44, 1, 3 + (i * 7) % 8, "#5a0c0c"));
+
+  // porta
+  R(112, 34, 96, 108, "#1c232c"); R(114, 36, 92, 2, "#2e3947");
+  R(116, 40, 88, 100, "#020304");
+  if (S.doorOpen > 0) { for (let i = 0; i < 4; i++) R(150 + i * 5, 60 + i * 12, 20 - i * 5, 1, "#1c3a2a"); R(158, 110, 4, 2, "#39d98a"); }
+  const off = S.doorOpen * 44;
+  ctx.save(); ctx.beginPath(); ctx.rect(116, 40, 88, 100); ctx.clip();
+  for (const side of [0, 1]) {
+    const lx = side ? 160 + off : 116 - off;
+    R(lx, 40, 44, 100, "#2b333d"); R(lx, 40, 44, 2, "#3b4552");
+    R(side ? lx : lx + 42, 40, 2, 100, "#1a2028");
+    R(lx + 6, 50, 32, 30, "#262d36"); R(lx + 6, 50, 32, 1, "#343e4a");
+    R(lx, 126, 44, 12, "#111");
+    for (let r = 0; r < 12; r++) for (let k = -12; k < 44; k += 8) { const xx = k + r; if (xx >= 0 && xx < 41) R(lx + xx, 126 + r, 4, 1, "#c9971b"); }
+  }
+  txt("C-03", 145 - off, 88, "#4b5663");
+  ctx.restore();
+
+  // teclado
+  const blink = Math.floor(T / 500) % 2;
+  R(210, 76, 14, 22, "#1b2129"); R(210, 76, 14, 1, "#394452");
+  R(211, 78, 12, 5, S.doorOpen > 0 ? "#0d4a22" : blink ? "#0b3a1a" : "#062010");
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) R(212 + i * 4, 86 + j * 4, 2, 2, "#5b6878");
+  R(221, 94, 2, 2, S.doorOpen > 0 ? "#39d98a" : blink ? "#ff3b3b" : "#501010");
+
+  // terminal
+  R(30, 112, 58, 4, "#2a323c"); R(34, 116, 3, 24, "#1b2129"); R(81, 116, 3, 24, "#1b2129");
+  R(38, 76, 42, 34, "#20262e"); R(38, 76, 42, 1, "#39424e");
+  R(41, 79, 36, 26, "#031008");
+  for (let i = 0; i < 26; i++) R(41 + hash(i + Math.floor(T / 120)) * 35, 79 + hash(i * 3 + Math.floor(T / 120)) * 25, 1, 1, "#1b6b3a");
+  if (Math.floor(T / 700) % 5 === 0) R(41, 79 + (T / 20 % 26), 36, 1, "#2a8a50");
+  R(56, 110, 6, 2, "#1b2129");
+  R(78, 100, 2, 20, "#141a20"); R(79, 120, 1, 14, "#141a20");
+
+  // duto
+  R(248, 22, 44, 24, "#161b21"); R(250, 24, 40, 20, "#07090b");
+  for (let x = 252; x < 290; x += 4) R(x, 24, 2, 20, "#20272f");
+  R(262, 30, 1, 10, "#0a0c0e");
+
+  // corpo do engenheiro
+  R(226, 150, 70, 5, "#2a0606"); R(234, 148, 50, 2, "#360808");
+  R(232, 141, 16, 5, "#2e2922"); R(244, 139, 34, 9, "#3b3a2e"); R(252, 139, 12, 2, "#4a4838");
+  R(246, 147, 12, 3, "#2e2922"); R(278, 137, 10, 10, "#3a3f45"); R(280, 140, 6, 3, "#171a1d");
+  R(270, 142, 1, 1, "#5ff0ff");
+
+  crewRow([128, 160, 192], 178);
+}
+
+function drawCorridor() {
+  R(0, 0, W, H, "#06080b");
+  const VX0 = 130, VX1 = 190, VY0 = 55, VY1 = 105;
+  for (let y = VY1; y < H; y++) { const t = (y - VY1) / (H - VY1); const l = VX0 - t * VX0, r = VX1 + t * (W - VX1); R(l, y, r - l, 1, t > 0.5 ? "#12171d" : "#0d1116"); }
+  for (let y = 0; y < VY0; y++) { const t = (VY0 - y) / VY0; const l = VX0 - t * VX0, r = VX1 + t * (W - VX1); R(l, y, r - l, 1, "#0a0d11"); }
+  for (let x = 0; x < VX0; x++) { const t = (VX0 - x) / VX0; const top = VY0 - t * VY0, bot = VY1 + t * (H - VY1); R(x, top, 1, bot - top, t > 0.6 ? "#161d25" : t > 0.3 ? "#11171e" : "#0c1116"); }
+  for (let x = VX1; x < W; x++) { const t = (x - VX1) / (W - VX1); const top = VY0 - t * VY0, bot = VY1 + t * (H - VY1); R(x, top, 1, bot - top, t > 0.6 ? "#161d25" : t > 0.3 ? "#11171e" : "#0c1116"); }
+  R(VX0, VY0, VX1 - VX0, VY1 - VY0, "#0a0d11");
+  // porta do fim
+  R(141, 62, 38, 43, "#1b222a"); R(143, 64, 34, 41, "#11161c"); R(159, 64, 2, 41, "#07090b");
+  R(170, 80, 3, 3, Math.floor(T / 600) % 2 ? "#39d98a" : "#0f3a20");
+  // costelas e luzes
+  [0.12, 0.34, 0.58, 0.86].forEach((d, i) => {
+    const l = VX0 - d * VX0, r = VX1 + d * (W - VX1), top = VY0 - d * VY0, bot = VY1 + d * (H - VY1);
+    const th = 1 + Math.round(d * 3), c = "#1f2833";
+    R(l, top, r - l, th, c); R(l, top, th, bot - top, c); R(r - th, top, th, bot - top, c);
+    const lit = flicker(i + 3, 70 + i * 23) && hash(Math.floor(T / 900) + i) > 0.25;
+    const lw = 6 + d * 34;
+    R(160 - lw / 2, top + th, lw, 2, lit ? "#dff4ff" : "#1c2530");
+    if (lit) alpha(0.10, () => { R(160 - lw, top + th + 2, lw * 2, bot - top - th - 2, "#bfe6ff"); });
+  });
+  // rastro
+  for (let k = 0; k <= 26; k++) { const p = k / 26; const x = 150 + (266 - 150) * Math.pow(p, 1.6) + Math.sin(k) * 2; const y = 178 - (178 - 90) * p; R(x, y, 7 * (1 - p) + 2, 3, "#3d0808"); }
+  // duto na parede direita
+  R(250, 66, 34, 28, "#0b0e12"); R(252, 68, 30, 24, "#030405");
+  for (let x = 254; x < 282; x += 4) R(x, 68, 2, 24, "#1c232b");
+  const eyes = (T % 5200) < 1800 && Math.floor(T / 140) % 9 !== 0;
+  if (eyes) { R(262, 78, 2, 1, "#ffd21a"); R(270, 78, 2, 1, "#ffd21a"); }
+  // caixas
+  R(16, 118, 50, 36, "#3b2f1f"); R(16, 118, 50, 2, "#57452d"); R(16, 134, 50, 2, "#2a2116"); R(38, 118, 2, 36, "#2a2116");
+  R(24, 96, 36, 24, "#453625"); R(24, 96, 36, 2, "#5d4a31"); R(40, 96, 2, 24, "#2e2418");
+  R(36, 102, 12, 2, "#c9971b"); R(36, 110, 12, 2, "#c9971b");
+  // névoa
+  alpha(0.07, () => { for (let i = 0; i < 3; i++) R(((T / 60 + i * 120) % 440) - 120, 130 + i * 12, 120, 8, "#9fb3c8"); });
+  crewRow([128, 160, 192], 178);
+}
+
+function drawMedbay() {
+  R(0, 0, W, H, "#0f1719");
+  for (let x = 0; x < W; x += 16) R(x, 0, 1, 140, "#142023");
+  for (let y = 0; y < 140; y += 16) R(0, y, W, 1, "#142023");
+  R(0, 140, W, 40, "#0a0f10"); R(0, 140, W, 2, "#1f2c2f");
+  for (let x = 0; x < W; x += 20) R(x, 142, 1, 38, "#101719");
+  const lit = flicker(9, 60);
+  R(100, 4, 120, 3, "#20292c"); R(102, 7, 116, 2, lit ? "#cfe9ee" : "#2a3638");
+  if (lit) alpha(0.06, () => R(60, 9, 200, 131, "#cfe9ee"));
+  // monitor cardíaco
+  R(40, 38, 52, 32, "#1a1f22"); R(43, 41, 46, 26, "#020805");
+  for (let x = 0; x < 46; x++) {
+    const ph = (x + Math.floor(T / 35)) % 32;
+    const y = ph === 10 ? -8 : ph === 11 ? 6 : ph === 12 ? -3 : 0;
+    R(43 + x, 54 + y, 1, 1, "#39ff7a");
+  }
+  // maca
+  R(20, 112, 90, 5, "#6a737c"); R(24, 117, 3, 23, "#4a525a"); R(103, 117, 3, 23, "#4a525a");
+  R(22, 106, 86, 6, "#7e878d");
+  const b = Math.sin(T / 900) > 0.2 ? 1 : 0;
+  R(26, 98, 80, 10, "#b9c1c4"); R(48, 94 - b, 28, 6, "#b9c1c4"); R(88, 92 - b, 15, 8, "#c9cfd2");
+  R(26, 106, 80, 2, "#8e979b"); R(60, 100, 8, 3, "#6b1d1d"); R(64, 103, 3, 5, "#5a1515");
+  if (Math.floor(T / 3000) % 4 === 3 && (T % 3000) < 200) R(26, 104, 2, 4, "#8a7a6a");
+  // mesa + gravador
+  R(150, 118, 44, 4, "#3a434a"); R(154, 122, 3, 18, "#2a3238"); R(187, 122, 3, 18, "#2a3238");
+  R(162, 108, 20, 10, "#23292e"); R(164, 110, 8, 5, "#101416");
+  R(177, 111, 3, 3, Math.floor(T / 450) % 2 ? "#ff3b3b" : "#3a0808");
+  // marcas de mãos
+  [[200, 50], [212, 58], [204, 64]].forEach(([x, y]) => { R(x, y + 3, 5, 5, "#4a0c0c"); for (let f = 0; f < 4; f++) R(x + f * 1.4, y - f % 2, 1, 4, "#4a0c0c"); });
+  // armário
+  R(234, 56, 54, 86, "#6f7b80"); R(236, 58, 50, 82, "#5b666b"); R(260, 58, 2, 82, "#3e474b");
+  R(248, 72, 12, 3, "#b01e1e"); R(252, 68, 4, 11, "#b01e1e");
+  R(286, 90, 4, 30, "#3e474b");
+  crewRow([128, 160, 192], 178);
+}
+
+function drawVoid() {
+  R(0, 0, W, H, "#010204");
+  stars(0, 0, W, H, T / 300);
+  // planeta partido
+  const cx = 228, cy = 66, r = 38;
+  for (let dy = -r; dy <= r; dy++) {
+    const w = Math.floor(Math.sqrt(r * r - dy * dy));
+    const shade = dy < -18 ? "#6b4330" : dy < 8 ? "#583526" : "#3f251b";
+    R(cx - w - 4, cy + dy - 1, w, 1, shade);
+    R(cx + 4, cy + dy + 1, w, 1, dy < -10 ? "#4e3024" : "#3a2219");
+    if (Math.abs(dy) < r - 4) R(cx - 4 + Math.sin(dy / 3) * 2, cy + dy, 7, 1, Math.sin(T / 300 + dy) > 0 ? "#ff4a1a" : "#c02a10");
+  }
+  alpha(0.12 + 0.04 * Math.sin(T / 500), () => disc(cx, cy, 50, "#ff3010"));
+  for (let i = 0; i < 6; i++) { const a = T / 4000 + i; R(cx + Math.cos(a) * (46 + i * 3), cy + Math.sin(a) * 10 + i * 3, 2, 1, "#8a5a44"); }
+  // estrutura / janela
+  R(0, 0, W, 5, "#1b2027"); R(0, 5, W, 1, "#2c333d");
+  R(96, 0, 7, 120, "#161b21"); R(214, 0, 7, 120, "#161b21");
+  for (let y = 12; y < 120; y += 14) { R(98, y, 3, 2, "#2a313b"); R(216, y, 3, 2, "#2a313b"); }
+  // plataformas
+  R(0, 130, 110, 50, "#11161c"); R(0, 130, 110, 2, "#2b3440"); for (let x = 0; x < 110; x += 10) R(x, 132, 1, 48, "#0b0f13");
+  R(210, 130, 110, 50, "#11161c"); R(210, 130, 110, 2, "#2b3440"); for (let x = 210; x < W; x += 10) R(x, 132, 1, 48, "#0b0f13");
+  [[108, 130], [106, 136], [109, 143], [104, 150], [108, 160]].forEach(([x, y]) => R(x, y, 4, 5, "#11161c"));
+  [[210, 132], [212, 141], [209, 152]].forEach(([x, y]) => R(x - 3, y, 4, 6, "#11161c"));
+  // cabo
+  for (let x = 100; x <= 220; x++) { const p = (x - 100) / 120; R(x, 124 + Math.sin(Math.PI * p) * 7 + Math.sin(T / 700 + p * 6) * 1, 1, 1, "#9aa3ad"); }
+  R(98, 120, 4, 10, "#3a434d"); R(218, 120, 4, 10, "#3a434d");
+  // destroços flutuando
+  for (let i = 0; i < 7; i++) {
+    const x = (hash(i + 40) * W + T / (60 + i * 20)) % (W + 20) - 10;
+    const y = 30 + hash(i + 50) * 120 + Math.sin(T / 900 + i) * 4;
+    const s = 1 + Math.floor(hash(i + 60) * 4);
+    R(x, y, s + 1, s, i === 3 ? "#5a3a2a" : "#3a434d");
+  }
+  if (Math.floor(T / 9000) % 2 === 1) { const x = ((T % 9000) / 9000) * 360 - 20; R(x, 70, 6, 3, "#4a4034"); R(x + 6, 70, 3, 3, "#3a3f45"); }
+  // painel de gravidade
+  R(280, 94, 26, 36, "#1d242c"); R(283, 97, 20, 12, "#0a0303");
+  txt("G:0", 284, 100, Math.floor(T / 400) % 2 ? "#ff3b3b" : "#5a1010", "left", 8);
+  R(285, 114, 4, 4, "#c9971b"); R(293, 114, 4, 4, "#39d98a");
+  crewRow([30, 56, 82], 170, 1);
+}
+
+function drawHangar() {
+  R(0, 0, W, H, "#0b0e12");
+  R(40, 16, 240, 100, "#151b22");
+  R(58, 26, 204, 54, "#000"); ctx.save(); ctx.beginPath(); ctx.rect(58, 26, 204, 54); ctx.clip(); stars(58, 26, 204, 54, T / 500); ctx.restore();
+  for (let x = 58; x < 262; x += 34) R(x, 26, 2, 54, "#1d252e");
+  R(58, 80, 204, 6, "#1d252e");
+  for (let k = 0; k < 204; k += 10) R(58 + k, 86, 5, 4, "#c9971b");
+  R(0, 118, W, 62, "#0d1014"); R(0, 118, W, 2, "#232b35");
+  for (let i = -4; i <= 4; i++) { for (let y = 120; y < H; y += 2) { const p = (y - 120) / 60; R(160 + i * (14 + p * 40), y, 1, 1, "#1b222a"); } }
+  R(100, 150, 120, 1, "#8a6a14"); R(110, 134, 100, 1, "#5a4510");
+  // sirenes
+  [[48, 14], [272, 14]].forEach(([x, y], i) => {
+    const a = (Math.sin(T / 180 + i * 3) + 1) / 2;
+    R(x - 4, y, 8, 5, a > 0.5 ? "#ffb347" : "#5a3a10");
+    alpha(0.08 * a, () => disc(x, y + 3, 26, "#ffb347"));
+  });
+  // console
+  R(12, 98, 40, 34, "#1d252e"); R(16, 102, 32, 14, "#021a0c");
+  for (let i = 0; i < 4; i++) R(18, 104 + i * 3, 6 + hash(i + Math.floor(T / 300)) * 22, 1, "#2ecf6a");
+  R(30, 84, 2, 14, "#3a434d"); R(26, 82, 10, 2, "#3a434d");
+  R(34, 80, 2, 2, Math.floor(T / 300) % 2 ? "#ff3b3b" : "#3a0808");
+  // nave de fuga
+  R(206, 90, 96, 30, "#7d858d"); R(206, 90, 96, 3, "#a9b1b8"); R(206, 114, 96, 6, "#4f565d");
+  R(296, 94, 10, 20, "#6d757d"); R(284, 96, 12, 7, "#8ef4ff"); R(286, 97, 4, 2, "#e6ffff");
+  R(198, 96, 8, 18, "#3b4046"); R(194, 100, 4, 10, flicker(22, 50) ? "#4fc3ff" : "#1a4a6a");
+  for (let i = 0; i < 4; i++) R(222 + i * 14, 98, 6, 4, "#2a3036");
+  txt("S-1", 226, 106, "#2f363d");
+  for (let k = 0; k < 20; k++) R(232 + k, 120 + k, 16, 1, "#5d656d");
+  R(212, 121, 2, 2, Math.floor(T / 400) % 2 ? "#39d98a" : "#0f3a20"); R(296, 121, 2, 2, Math.floor(T / 400) % 2 ? "#0f3a20" : "#39d98a");
+  // a criatura
+  const sway = Math.round(Math.sin(T / 800) * 1.2);
+  const tw = (T % 3400) < 140 ? (hash(Math.floor(T / 40)) * 4 - 2) | 0 : 0;
+  const cx = 118 + sway, k = "#020203";
+  R(cx - 1 + tw, 50, 8, 9, k); R(cx - 3 + tw, 54, 3, 2, k);
+  R(cx + 1, 59, 4, 4, k);
+  R(cx - 2, 62, 11, 24, k); R(cx - 4, 64, 3, 3, k); R(cx + 8, 63, 3, 3, k);
+  R(cx - 7, 64, 3, 18, k); R(cx - 11, 80, 3, 22, k); R(cx - 15, 100, 7, 2, k); R(cx - 17, 101, 3, 1, k);
+  R(cx + 10, 62, 3, 16, k); R(cx + 13, 76, 3, 24, k); R(cx + 13, 98, 8, 2, k);
+  R(cx - 1, 86, 4, 16, k); R(cx - 4, 100, 4, 18, k); R(cx + 5, 86, 4, 14, k); R(cx + 8, 98, 4, 20, k);
+  const pul = Math.floor(T / 350) % 3;
+  R(cx + 1, 68, 2, 2, pul ? "#ffb000" : "#6a4400"); R(cx + 5, 76, 2, 1, pul === 2 ? "#ffb000" : "#6a4400"); R(cx - 10, 86, 1, 2, "#ffb000");
+  alpha(0.25, () => { R(cx - 2, 118, 16, 2, "#000"); });
+  crewRow([146, 172, 198], 178);
+}
+
+function drawEnding() {
+  R(0, 0, W, H, "#010204");
+  const e = (T - S.endT0) / 1000;
+  stars(0, 0, W, H, -T / 40);
+  const k = Math.max(0.25, 1 - e / 18);
+  ctx.save(); ctx.translate(90, 90); ctx.scale(k, k);
+  R(-90, -14, 150, 28, "#161b21"); R(-110, -6, 30, 12, "#11151a"); R(60, -20, 26, 40, "#1b2027");
+  R(-60, -28, 30, 14, "#161b21"); R(-20, 14, 50, 12, "#11151a");
+  for (let i = 0; i < 8; i++) R(-80 + i * 17, -4, 2, 2, Math.floor(T / 300 + i) % 3 ? "#3a0808" : "#ff3b3b");
+  ctx.restore();
+  const sx = 170 + Math.min(e, 10) * 8, sy = 96 + Math.sin(T / 600) * 2;
+  R(sx, sy, 22, 7, "#8a929a"); R(sx + 18, sy + 1, 6, 5, "#6d757d"); R(sx + 17, sy + 2, 3, 2, "#8ef4ff");
+  R(sx - 4 - (Math.floor(T / 60) % 3), sy + 2, 4 + (Math.floor(T / 60) % 3), 3, "#4fc3ff");
+  if (e > 7 && Math.floor(T / 300) % 2) R(sx + 8, sy - 3, 2, 2, "#ff3b3b");
+}
+
+function drawTitleBg() {
+  R(0, 0, W, H, "#010204");
+  stars(0, 0, W, H, T / 120);
+  alpha(0.9, () => { for (let dy = -60; dy <= 60; dy++) { const w = Math.floor(Math.sqrt(3600 - dy * dy)); R(270 - w, 150 + dy, w * 2, 1, dy < 0 ? "#3a2219" : "#2a1812"); } });
+  R(262, 90, 8, 60, "#b02010");
+  const x = 40 + Math.sin(T / 3000) * 4;
+  R(x, 60, 150, 22, "#12161b"); R(x - 20, 66, 20, 10, "#0e1116"); R(x + 150, 56, 22, 30, "#161b21"); R(x + 30, 50, 30, 10, "#12161b"); R(x + 60, 82, 40, 8, "#0e1116");
+  for (let i = 0; i < 9; i++) R(x + 10 + i * 15, 70, 2, 1, Math.floor(T / 400 + i) % 4 ? "#2a0606" : "#ff3b3b");
+}
+
+function drawKeypad() {
+  R(0, 0, W, H, "#0b0f14");
+  for (let x = 0; x < W; x += 32) R(x, 0, 1, H, "#121922");
+  R(108, 8, 104, 166, "#232b35"); R(110, 10, 100, 162, "#1a2029"); R(110, 10, 100, 1, "#3a4655");
+  for (const [sx, sy] of [[113, 13], [204, 13], [113, 166], [204, 166]]) R(sx, sy, 3, 3, "#39424e");
+  R(118, 18, 84, 30, "#000"); R(120, 20, 80, 26, S.screenMsg === "ok" ? "#0b4a22" : S.screenMsg === "err" ? "#3a0808" : "#031a0b");
+  if (S.screenMsg === "ok") txt("ACESSO OK", 160, 29, "#6dff8a", "center");
+  else if (S.screenMsg === "err") txt("ERRO", 160, 25, "#ff3b3b", "center", 16);
+  else {
+    const shown = (S.entry + "____").slice(0, 4);
+    txt(shown, 160, 25, "#39ff7a", "center", 16);
+    if (Math.floor(T / 400) % 2 && S.entry.length < 4) R(128 + S.entry.length * 16, 42, 14, 2, "#39ff7a");
+  }
+  for (const k of KEYS) {
+    const down = S.pressed === k.k && T < S.pressedUntil;
+    const base = k.k === "OK" ? "#1f5a33" : k.k === "C" ? "#5a2020" : "#3a4452";
+    R(k.x, k.y + 2, k.w, k.h, "#0c0f13");
+    R(k.x, k.y + (down ? 2 : 0), k.w, k.h, down ? "#5ff0ff" : base);
+    R(k.x, k.y + (down ? 2 : 0), k.w, 1, down ? "#bff" : "#5a6676");
+    txt(k.k, k.x + k.w / 2 + 1, k.y + 8 + (down ? 2 : 0), down ? "#001" : "#e0e8f0", "center");
+  }
+  // histórico
+  txt("TENTATIVAS", 8, 12, "#7d8fa3");
+  S.attempts.forEach((a, i) => {
+    a.guess.forEach((d, j) => {
+      const col = a.fb[j] === 2 ? "#2e9e4f" : a.fb[j] === 1 ? "#b8961e" : "#3a3f45";
+      R(10 + j * 20, 26 + i * 18, 16, 15, col);
+      txt(String(d), 18 + j * 20 + 1, 30 + i * 18, "#fff", "center");
+    });
+  });
+  // legenda
+  txt("LEGENDA", 222, 12, "#7d8fa3");
+  [["#2e9e4f", "CERTO"], ["#b8961e", "OUTRO"], ["#b8961e", "LUGAR"], ["#3a3f45", "NÃO"]].forEach(([c, s], i) => {
+    if (i !== 2) R(222, 28 + i * 16, 8, 8, c);
+    txt(s, 234, 28 + i * 16 - (i === 2 ? 6 : 0), "#aab7c4");
+  });
+  txt("O2 -3", 222, 96, "#7d8fa3"); txt("POR ERRO", 222, 108, "#7d8fa3");
+  txt((8 - S.attempts.length) + " RESTAM", 222, 128, "#ffb347");
+  // mão enluvada
+  const h = S.hand;
+  h.x += (h.tx - h.x) * 0.25; h.y += (h.ty - h.y) * 0.25;
+  const hx = Math.round(h.x), hy = Math.round(h.y);
+  R(hx - 2, hy, 5, 13, "#3b3326"); R(hx - 2, hy, 5, 2, "#56493a");
+  R(hx - 9, hy + 11, 19, 15, "#3b3326"); R(hx - 9, hy + 11, 19, 2, "#4f4332");
+  R(hx - 9, hy + 13, 4, 7, "#2c261e"); R(hx + 5, hy + 13, 5, 6, "#2c261e");
+  R(hx - 10, hy + 26, 21, 4, CREW[0]);
+  R(hx - 9, hy + 30, 19, 200, "#4a4034"); R(hx - 9, hy + 30, 4, 200, "#3a3228");
+}
+
+const KEYS = [];
+["1","2","3","4","5","6","7","8","9","C","0","OK"].forEach((k, i) => {
+  const c = i % 3, r = (i / 3) | 0;
+  KEYS.push({ k, x: 121 + c * 27, y: 56 + r * 28, w: 24, h: 22 });
+});
+
+const VIEWS = { title: drawTitleBg, cell: drawCell, corridor: drawCorridor, medbay: drawMedbay, void: drawVoid, hangar: drawHangar, keypad: drawKeypad, ending: drawEnding };
+
+/* ---------- Dado ---------- */
+const PIPS = { 1: [[1,1]], 2: [[0,0],[2,2]], 3: [[0,0],[1,1],[2,2]], 4: [[0,0],[2,0],[0,2],[2,2]], 5: [[0,0],[2,0],[1,1],[0,2],[2,2]], 6: [[0,0],[2,0],[0,1],[2,1],[0,2],[2,2]] };
+function drawDie() {
+  const d = S.dice; if (!d) return;
+  alpha(0.6, () => R(0, 0, W, H, "#000"));
+  let x = 142, y = 58;
+  if (d.rolling) { const e = Math.min(1, (T - d.t0) / 1100); y -= Math.abs(Math.sin(e * Math.PI * 3)) * 30 * (1 - e); x += Math.sin(T / 25) * 4 * (1 - e); }
+  R(x - 2, y - 2, 40, 40, "#000"); R(x, y, 36, 36, "#e9e7dc"); R(x, y + 32, 36, 4, "#b9b6a8"); R(x + 32, y, 4, 36, "#cac7ba"); R(x, y, 36, 1, "#fff");
+  for (const [gx, gy] of PIPS[d.face]) R(x + 5 + gx * 10, y + 5 + gy * 10, 6, 6, d.face === 1 ? "#c01010" : "#141414");
+  if (!d.rolling) {
+    const col = ["#ff3b3b", "#ff9a5c", "#ffb347", "#d9e4ec", "#6dff8a", "#ffe066"][d.final - 1];
+    txt(d.bonus ? `${d.raw} +${d.bonus} = ${d.final}` : `${d.final}`, 160, 102, "#fff", "center");
+    txt(RANK[d.final - 1], 160, 116, col, "center");
+    if (d.final === 6) for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2 + T / 500; R(160 + Math.cos(a) * 34, 76 + Math.sin(a) * 30, 2, 2, "#ffe066"); }
+  } else txt("ROLANDO...", 160, 106, "#7d8fa3", "center");
+}
+
+/* ---------- Laço principal ---------- */
+let vignette = null;
+function frame(now) {
+  T = now;
+  ctx.save();
+  if (S.shake > 0.3) { ctx.translate((Math.random() - 0.5) * S.shake, (Math.random() - 0.5) * S.shake); S.shake *= 0.9; }
+  (VIEWS[S.view] || drawCell)();
+  // destaque de hotspots
+  if (S.mode === "choice" && S.view !== "keypad") {
+    const sc = SCENES[S.scene];
+    sc.options.forEach((o, i) => { if (i === S.sel && o.hot) brackets(o.hot, Math.floor(T / 250) % 2 ? "#ffb347" : "#7a5010"); });
+    if (S.hover && S.hover.opt === undefined) brackets(S.hover, "#5ff0ff");
+  }
+  // sanidade baixa: glitch
+  if (S.san < 40 && S.mode !== "title" && Math.random() < 0.04) {
+    const y = Math.random() * H | 0, h = 2 + Math.random() * 10 | 0;
+    ctx.drawImage(cv, 0, y, W, h, (Math.random() - 0.5) * 12, y, W, h);
+    alpha(0.15, () => R(0, y, W, h, "#ff0040"));
+  }
+  if (!vignette) { vignette = ctx.createRadialGradient(160, 90, 60, 160, 90, 200); vignette.addColorStop(0, "rgba(0,0,0,0)"); vignette.addColorStop(1, "rgba(0,0,0,.7)"); }
+  ctx.fillStyle = vignette; ctx.fillRect(0, 0, W, H);
+  drawDie();
+  // rótulo (point and click)
+  const lab = T < S.labelUntil ? S.label : (S.hover && S.view !== "keypad" && (S.mode === "choice") ? S.hover.label : "");
+  if (lab) { alpha(0.8, () => R(0, H - 14, W, 14, "#000")); txt(lab, 160, H - 11, "#ffb347", "center"); }
+  if (S.flash) { alpha(S.flash.a, () => R(0, 0, W, H, S.flash.c)); S.flash.a *= 0.9; if (S.flash.a < 0.02) S.flash = null; }
+  if (S.fade > 0) { alpha(S.fade, () => R(0, 0, W, H, "#000")); S.fade = Math.max(0, S.fade - 0.025); }
+  ctx.restore();
+  requestAnimationFrame(frame);
+}
+
+/* =========================================================
+   INTERFACE DE TEXTO
+   ========================================================= */
+const elText = document.getElementById("text"), elPanel = document.getElementById("panel"), elNext = document.getElementById("next"), elWhere = document.getElementById("where");
+let typer = null, lines = [], lineIdx = 0, onDone = null, fullLine = "";
+
+function showLine(l) {
+  const o = typeof l === "string" ? { t: l } : l;
+  elText.className = o.cls || "";
+  fullLine = o.t; elText.textContent = ""; elNext.hidden = true;
+  let i = 0; clearInterval(typer);
+  typer = setInterval(() => {
+    i++; elText.textContent = fullLine.slice(0, i);
+    if (i % 2 === 0 && fullLine[i - 1] !== " ") SFX.type();
+    if (i >= fullLine.length) { clearInterval(typer); typer = null; elNext.hidden = false; }
+  }, 24);
+}
+function narrate(ls, done) {
+  S.mode = "narration"; lines = ls; lineIdx = 0; onDone = done; elPanel.innerHTML = "";
+  showLine(lines[0]);
+}
+function advance() {
+  if (S.mode !== "narration") return;
+  if (typer) { clearInterval(typer); typer = null; elText.textContent = fullLine; elNext.hidden = false; return; }
+  lineIdx++;
+  if (lineIdx < lines.length) showLine(lines[lineIdx]);
+  else { elNext.hidden = true; const d = onDone; onDone = null; d && d(); }
+}
+
+function showChoices() {
+  const sc = SCENES[S.scene];
+  S.mode = "choice"; S.sel = 0;
+  elText.className = ""; elText.textContent = S.scene === 0 ? "O que vocês fazem?" : "O que vocês fazem agora?";
+  elPanel.innerHTML = "";
+  sc.options.forEach((o, i) => {
+    const b = document.createElement("button");
+    b.className = "opt"; b.type = "button";
+    const bonus = o.bonusItem && S.items.includes(o.bonusItem) ? ` <span class="tag">[+1 ${ITEMS[o.bonusItem].split(" ")[0].toUpperCase()}]</span>` : "";
+    b.innerHTML = `${i + 1}. ${o.label}${bonus}`;
+    b.addEventListener("mouseenter", () => setSel(i));
+    b.addEventListener("click", () => pick(i));
+    elPanel.appendChild(b);
+  });
+  if (sc.hint) { const h = document.createElement("div"); h.className = "hint"; h.textContent = sc.hint; elPanel.appendChild(h); }
+  setSel(0, true);
+}
+function setSel(i, silent) {
+  if (i !== S.sel && !silent) SFX.move();
+  S.sel = i;
+  [...elPanel.querySelectorAll(".opt")].forEach((b, j) => b.classList.toggle("sel", j === i));
+}
+function pick(i) {
+  if (S.mode !== "choice") return;
+  SFX.confirm();
+  S.picked = i;
+  showDicePanel();
+}
+
+function showDicePanel() {
+  const o = SCENES[S.scene].options[S.picked];
+  S.mode = "dice";
+  elText.className = ""; elText.textContent = `${o.label}. Rolem o dado!`;
+  const bonus = currentBonus(o);
+  elPanel.innerHTML = `
+    <div class="dicebar">
+      <button class="btn" id="rollBtn" type="button">► ROLAR O DADO</button>
+      <div class="phys"><span>DADO FÍSICO:</span>${[1,2,3,4,5,6].map(n => `<button class="btn small" type="button" data-n="${n}">${n}</button>`).join("")}</div>
+    </div>
+    <div class="hint">1 = desastre · 6 = extraordinário${bonus ? ` · bônus ativo: +${bonus}` : ""} · ESPAÇO rola o dado virtual</div>`;
+  document.getElementById("rollBtn").addEventListener("click", () => roll());
+  elPanel.querySelectorAll("[data-n]").forEach(b => b.addEventListener("click", () => roll(+b.dataset.n)));
+  document.getElementById("rollBtn").focus({ preventScroll: true });
+}
+function currentBonus(o) { return S.nextBonus + (o.bonusItem && S.items.includes(o.bonusItem) ? 1 : 0); }
+
+function roll(physical) {
+  if (S.mode !== "dice") return;
+  const o = SCENES[S.scene].options[S.picked];
+  const raw = physical || (1 + Math.random() * 6 | 0);
+  const bonus = currentBonus(o);
+  const final = Math.min(6, raw + bonus);
+  S.nextBonus = 0;
+  S.mode = "rolling"; elPanel.innerHTML = "";
+  elText.textContent = "O dado gira...";
+  S.dice = { rolling: true, t0: performance.now(), face: 1, raw, bonus, final };
+  const iv = setInterval(() => { if (!S.dice || !S.dice.rolling) return clearInterval(iv); S.dice.face = 1 + Math.random() * 6 | 0; SFX.tick(); }, 70);
+  setTimeout(() => {
+    clearInterval(iv);
+    S.dice.rolling = false; S.dice.face = raw;
+    SFX.result(final);
+    if (final === 1) { S.shake = 8; S.flash = { c: "#ff0000", a: 0.5 }; }
+    else if (final === 2) { S.shake = 4; S.flash = { c: "#ff4000", a: 0.25 }; }
+    else if (final === 6) { S.flash = { c: "#ffffff", a: 0.6 }; }
+    setTimeout(() => { S.dice = null; showResult(o, raw, bonus, final); }, 1500);
+  }, 1100);
+}
+
+function applyFx(fx) {
+  const parts = []; let clamped = false;
+  const names = { hp: "TRAJE", o2: "O2", san: "MENTE" };
+  for (const k of ["hp", "o2", "san"]) {
+    if (!fx[k]) continue;
+    const before = S[k];
+    S[k] = Math.max(5, Math.min(100, S[k] + fx[k]));
+    if (before + fx[k] < 5) clamped = true;
+    parts.push(`${names[k]} ${fx[k] > 0 ? "+" : ""}${fx[k]}`);
+  }
+  hud();
+  return { parts, clamped };
+}
+
+function clueText() {
+  const c = S.code, sorted = [...c].sort((a, b) => a - b).join(" · ");
+  return [
+    "Nenhuma pista. Vão ter que usar a lógica no teclado.",
+    `Dois dos números do código: ${[c[1], c[3]].sort((a, b) => a - b).join(" e ")}.`,
+    `Os quatro números, fora de ordem: ${sorted}.`,
+    `Os quatro números: ${sorted}. O código começa com ${c[0]}.`,
+    `Código completo: ${c.join(" ")}.`,
+  ][S.clue];
+}
+
+function showResult(o, raw, bonus, final) {
+  const out = o.out[final - 1], fx = out[1];
+  const ls = [{ t: `DADO: ${raw}${bonus ? ` + ${bonus} de bônus = ${final}` : ""} · ${RANK[final - 1]}!`, cls: "r" + final }, { t: out[0], cls: "r" + Math.max(3, final) }];
+  const { parts, clamped } = applyFx(fx);
+  if (parts.length) ls.push({ t: parts.join("   "), cls: "fx" });
+  if (clamped) ls.push({ t: "O traje injeta estimulantes de emergência. Ninguém morre nesta fase... ainda.", cls: "sys" });
+  if (fx.item && !S.items.includes(fx.item)) { S.items.push(fx.item); ls.push({ t: `ITEM OBTIDO: ${ITEMS[fx.item]}.`, cls: "item" }); hud(); }
+  if (fx.next) { S.nextBonus = 1; ls.push({ t: "Moral em alta: +1 no próximo dado.", cls: "item" }); hud(); }
+  if (fx.clue !== undefined) { S.clue = Math.max(S.clue, fx.clue); ls.push({ t: "PISTA: " + clueText(), cls: "clue" }); }
+  S.log.push({ scene: SCENES[S.scene].name.split("·")[1].trim(), choice: o.label, raw, final });
+  hud();
+  narrate(ls, () => {
+    if (S.scene === 0) narrate(["Um de vocês se aproxima do teclado e respira fundo.", "Hora de digitar o código."], enterKeypad);
+    else if (S.scene < SCENES.length - 1) goScene(S.scene + 1);
+    else startEnding();
+  });
+}
+
+/* ---------- Teclado da porta (point and click) ---------- */
+function enterKeypad() {
+  S.view = "keypad"; S.mode = "keypad"; S.fade = 0.6; S.entry = ""; S.screenMsg = null;
+  S.hand.x = S.hand.tx = 250; S.hand.y = S.hand.ty = 200;
+  elWhere.textContent = "Cena 1/5 · Teclado da porta C-03";
+  renderKeypadPanel();
+}
+function renderKeypadPanel() {
+  elText.className = "clue"; elText.textContent = "Digitem o código de 4 dígitos.";
+  elPanel.innerHTML = `
+    <div class="notes"><ul>
+      <li>${clueText()}</li>
+      <li>Os 4 dígitos são todos diferentes.</li>
+    </ul></div>
+    <div class="legend"><span><i style="background:#2e9e4f"></i>posição certa</span><span><i style="background:#b8961e"></i>existe, em outro lugar</span><span><i style="background:#3a3f45"></i>não existe</span></div>
+    <div class="hint">Clique nas teclas da porta ou use o teclado: 0-9, ENTER confirma, BACKSPACE apaga.</div>`;
+}
+function pressKey(k) {
+  if (S.mode !== "keypad" || S.keypadLocked) return;
+  const key = KEYS.find(q => q.k === k); if (!key) return;
+  S.hand.tx = key.x + key.w / 2; S.hand.ty = key.y + key.h / 2;
+  S.pressed = k; S.pressedUntil = T + 160;
+  S.screenMsg = null;
+  if (k === "C") { S.entry = ""; SFX.key(); return; }
+  if (k === "OK") { if (S.entry.length < 4) { SFX.error(); return; } SFX.key(); submitCode(); return; }
+  if (S.entry.length < 4) { S.entry += k; SFX.key(); } else SFX.error();
+}
+function backspace() { if (S.mode === "keypad" && !S.keypadLocked) { S.entry = S.entry.slice(0, -1); SFX.key(); } }
+function submitCode() {
+  const g = S.entry.split("").map(Number);
+  const fb = g.map((d, i) => d === S.code[i] ? 2 : S.code.includes(d) ? 1 : 0);
+  S.attempts.push({ guess: g, fb });
+  if (fb.every(v => v === 2)) return openDoor(false);
+  S.keypadLocked = true;
+  S.screenMsg = "err"; SFX.error(); S.shake = 3;
+  applyFx({ o2: -3 });
+  setTimeout(() => {
+    S.entry = ""; S.screenMsg = null; S.keypadLocked = false;
+    if (S.attempts.length >= 8) { S.keypadLocked = true; openDoor(true); }
+  }, 900);
+}
+function openDoor(forced) {
+  S.keypadLocked = true; S.mode = "busy";
+  if (!forced) { S.screenMsg = "ok"; SFX.success(); }
+  else { S.flash = { c: "#ffffff", a: 0.4 }; noise(0.4, 0.3, 4000); }
+  elText.className = forced ? "sys" : "r5";
+  elText.textContent = forced ? "O painel entra em curto e a trava magnética cede sozinha." : "ACESSO LIBERADO.";
+  elPanel.innerHTML = "";
+  setTimeout(() => {
+    S.view = "cell"; S.fade = 0.5; S.doorOpen = 0; SFX.door();
+    const t0 = performance.now();
+    const step = () => { S.doorOpen = Math.min(1, (performance.now() - t0) / 1600); if (S.doorOpen < 1) requestAnimationFrame(step); else setTimeout(() => goScene(1), 600); };
+    requestAnimationFrame(step);
+  }, 1300);
+}
+
+/* ---------- Fluxo ---------- */
+function goScene(i) {
+  S.scene = i; const sc = SCENES[i];
+  S.view = sc.view; S.fade = 1; S.hover = null;
+  if (i > 0) SFX.whoosh();
+  elWhere.textContent = "Fase 1 · " + sc.name;
+  narrate(sc.intro, showChoices);
+}
+function startEnding() {
+  S.view = "ending"; S.endT0 = performance.now(); S.fade = 1;
+  elWhere.textContent = "Fase 1 · Fim";
+  SFX.door();
+  narrate(ENDING, showSummary);
+}
+function showSummary() {
+  S.mode = "end";
+  const avg = S.log.reduce((a, l) => a + l.final, 0) / S.log.length;
+  const rank = avg >= 5 ? "LENDAS DO VAZIO" : avg >= 4 ? "SOBREVIVENTES DE ELITE" : avg >= 3 ? "TRIPULAÇÃO DE SORTE" : "VIVOS POR UM FIO";
+  elText.className = "r6"; elText.textContent = "FIM DA FASE 1. CONTINUA...";
+  elPanel.innerHTML = `
+    <div class="rank">AVALIAÇÃO: ${rank}</div>
+    <div class="summary">
+      <div><span class="k">Traje:</span> ${S.hp}%</div><div><span class="k">Oxigênio:</span> ${S.o2}%</div>
+      <div><span class="k">Mente:</span> ${S.san}%</div><div><span class="k">Tentativas no teclado:</span> ${S.attempts.length}</div>
+      <div><span class="k">Itens:</span> ${S.items.map(i => ITEMS[i]).join(", ") || "nenhum"}</div><div><span class="k">Média dos dados:</span> ${avg.toFixed(1)}</div>
+    </div>
+    <div class="logwrap"><table class="log">${S.log.map(l => `<tr><td class="k">${l.scene}</td><td>${l.choice}</td><td class="n">DADO ${l.final}</td></tr>`).join("")}</table></div>
+    <div class="dicebar"><button class="btn" id="againBtn" type="button">► JOGAR NOVAMENTE</button></div>`;
+  document.getElementById("againBtn").addEventListener("click", () => { resetState(); S.mode = "narration"; hud(); document.getElementById("title").hidden = true; goScene(0); });
+}
+
+function hud() {
+  for (const [k, id] of [["hp", "hp"], ["o2", "o2"], ["san", "san"]]) {
+    const b = document.getElementById("b" + id);
+    b.querySelector("i").style.width = S[k] + "%";
+    b.classList.toggle("low", S[k] <= 25);
+    document.getElementById("n" + id).textContent = S[k];
+  }
+  document.getElementById("items").textContent = S.items.length ? "ITENS: " + S.items.map(i => ITEMS[i].split(" ")[0]).join(", ") : "";
+  document.getElementById("bonus").textContent = S.nextBonus ? "+1 NO PRÓXIMO DADO" : "";
+}
+
+function start() {
+  initAudio(); startAmbient();
+  document.getElementById("title").hidden = true;
+  resetState(); S.mode = "narration"; hud();
+  goScene(0);
+}
+
+/* ---------- Entrada ---------- */
+function toCanvas(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+function inside(p, h) { return p.x >= h.x && p.x < h.x + h.w && p.y >= h.y && p.y < h.y + h.h; }
+function hotAt(p) {
+  if (S.view === "keypad" || !SCENES[S.scene] || SCENES[S.scene].view !== S.view) return null;
+  const sc = SCENES[S.scene];
+  for (let i = 0; i < sc.options.length; i++) { const h = sc.options[i].hot; if (h && inside(p, h)) return { ...h, opt: i }; }
+  for (const h of sc.extra || []) if (inside(p, h)) return h;
+  return null;
+}
+cv.addEventListener("mousemove", e => {
+  const p = toCanvas(e);
+  if (S.mode === "keypad") { cv.style.cursor = KEYS.some(k => inside(p, k)) ? "pointer" : "default"; return; }
+  if (S.mode !== "choice") { S.hover = null; cv.style.cursor = "default"; return; }
+  S.hover = hotAt(p);
+  cv.style.cursor = S.hover ? "pointer" : "default";
+  if (S.hover && S.hover.opt !== undefined) setSel(S.hover.opt);
+});
+cv.addEventListener("mouseleave", () => { S.hover = null; });
+cv.addEventListener("click", e => {
+  const p = toCanvas(e);
+  if (S.mode === "keypad") { const k = KEYS.find(q => inside(p, q)); if (k) pressKey(k.k); return; }
+  if (S.mode === "narration") return advance();
+  if (S.mode === "dice") return roll();
+  if (S.mode === "choice") {
+    const h = hotAt(p);
+    if (!h) return;
+    if (h.opt !== undefined) pick(h.opt);
+    else { S.label = h.desc; S.labelUntil = T + 3000; SFX.move(); }
+  }
+});
+document.getElementById("box").addEventListener("click", e => { if (e.target.closest("button")) return; advance(); });
+document.getElementById("startBtn").addEventListener("click", start);
+document.getElementById("muteBtn").addEventListener("click", e => {
+  muted = !muted; if (master) master.gain.value = muted ? 0 : 0.55;
+  e.currentTarget.textContent = muted ? "SOM: OFF" : "SOM: ON";
+});
+document.getElementById("fsBtn").addEventListener("click", () => {
+  const el = document.getElementById("game");
+  try { if (document.fullscreenElement) document.exitFullscreen(); else el.requestFullscreen().catch(() => {}); } catch (_) {}
+});
+document.addEventListener("keydown", e => {
+  const k = e.key;
+  if (S.mode === "title") { if (k === "Enter" || k === " ") { e.preventDefault(); start(); } return; }
+  if (S.mode === "narration" && (k === " " || k === "Enter")) { e.preventDefault(); advance(); return; }
+  if (S.mode === "choice") {
+    const n = SCENES[S.scene].options.length;
+    if (k === "ArrowDown") { e.preventDefault(); setSel((S.sel + 1) % n); }
+    else if (k === "ArrowUp") { e.preventDefault(); setSel((S.sel + n - 1) % n); }
+    else if (k === "Enter" || k === " ") { e.preventDefault(); pick(S.sel); }
+    else if (/^[1-9]$/.test(k) && +k <= n) pick(+k - 1);
+    return;
+  }
+  if (S.mode === "dice") {
+    if (k === " " || k === "Enter") { e.preventDefault(); roll(); }
+    else if (/^[1-6]$/.test(k)) roll(+k);
+    return;
+  }
+  if (S.mode === "keypad") {
+    if (/^[0-9]$/.test(k)) pressKey(k);
+    else if (k === "Enter") { e.preventDefault(); pressKey("OK"); }
+    else if (k === "Backspace") { e.preventDefault(); backspace(); }
+    else if (k === "Escape" || k === "Delete") pressKey("C");
+  }
+});
+
+hud();
+requestAnimationFrame(frame);
+})();
+</script>
