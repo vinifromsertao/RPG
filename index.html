@@ -7,10 +7,9 @@
 <style>
   :root{
     color-scheme: dark;
-    --void:#05070a;
-    --hull:#0e141b;
-    --plate:#1a232e;
-    --line:#2d3b4b;
+    --void:#040507;
+    --hull:#0c1117;
+    --line:#2a3644;
     --text:#d9e4ec;
     --dim:#7d8fa3;
     --rig:#5ff0ff;
@@ -18,6 +17,7 @@
     --amber:#ffb347;
     --good:#6dff8a;
     --gold:#ffe066;
+    --infect:#9dff3b;
     --pixel:"Press Start 2P", "Courier New", monospace;
     --crt:"VT323", "Courier New", monospace;
   }
@@ -28,40 +28,55 @@
     margin:0; background:var(--void); color:var(--text);
     font-family:var(--crt); font-size:22px; line-height:1.25;
     padding-inline:16px; padding-block:12px;
-    -webkit-font-smoothing:none;
   }
-  #game{max-width:980px; margin:0 auto; display:flex; flex-direction:column; gap:10px}
+  #game{max-width:1000px; margin:0 auto; display:flex; flex-direction:column; gap:8px}
+  #game:fullscreen{max-width:none; padding:12px; background:var(--void); overflow:auto}
 
   /* ---------- HUD ---------- */
-  #hud{
-    display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center;
-    font-family:var(--pixel); font-size:10px; letter-spacing:.05em;
-    border:2px solid var(--line); background:var(--hull); padding:8px 10px;
-  }
+  #hud{border:2px solid var(--line); background:var(--hull); padding:8px 10px; display:flex; flex-direction:column; gap:8px}
+  .row1{display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center; font-family:var(--pixel); font-size:10px; letter-spacing:.05em}
+  #timer{font-family:var(--pixel); font-size:14px; color:var(--alarm); letter-spacing:.08em; font-variant-numeric:tabular-nums; min-width:15ch}
+  #timer.crit{animation:blink .5s steps(2) infinite}
+  #timer.paused{color:var(--dim)}
   .stat{display:flex; align-items:center; gap:6px}
   .stat b{color:var(--dim); font-weight:normal}
   .bar{width:90px; height:10px; background:#000; border:1px solid var(--line); position:relative}
-  .bar i{position:absolute; inset:0 auto 0 0; background:var(--rig); transition:width .5s steps(8)}
-  .bar.o2 i{background:#8fd3ff}
-  .bar.san i{background:#c79bff}
+  .bar i{position:absolute; inset:0 auto 0 0; background:#c79bff; transition:width .5s steps(8)}
   .bar.low i{background:var(--alarm); animation:blink .5s steps(2) infinite}
   .num{min-width:3ch; text-align:right; font-variant-numeric:tabular-nums}
-  #items{color:var(--amber)}
+  #inv{color:var(--amber)}
   #bonus{color:var(--good)}
-  .hud-btns{margin-left:auto; display:flex; gap:6px}
+  .hud-btns{margin-left:auto; display:flex; gap:6px; flex-wrap:wrap}
   .hud-btns button{font-family:var(--pixel); font-size:9px; background:#000; color:var(--dim); border:1px solid var(--line); padding:5px 7px; cursor:pointer}
   .hud-btns button:hover,.hud-btns button:focus-visible{color:var(--rig); border-color:var(--rig); outline:none}
+  .hud-btns button.on{color:var(--amber); border-color:var(--amber)}
+
+  #crew{display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:4px}
+  .chip{display:flex; align-items:center; gap:6px; border:1px solid var(--line); background:#06090d; padding:3px 6px; min-width:0}
+  .chip .n{font-family:var(--pixel); font-size:11px; color:var(--c)}
+  .chip .hp{display:flex; gap:2px}
+  .chip .hp i{width:7px; height:9px; background:var(--rig)}
+  .chip .hp i.off{background:#1a232c}
+  .chip .nm{font-size:18px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .chip.inf{border-color:var(--infect)}
+  .chip.inf .nm{color:var(--infect)}
+  .chip.hurt .hp i:not(.off){background:var(--gold)}
+  .chip.crit .hp i:not(.off){background:var(--alarm)}
+  .chip.dead{opacity:.55; border-style:dashed}
+  .chip.dead .n{color:var(--alarm); text-decoration:line-through}
+  .chip.dead .nm{color:var(--alarm)}
+  .chip.npc .n{font-size:9px}
 
   /* ---------- Tela ---------- */
   #screen{position:relative; width:100%; max-width:100%; aspect-ratio:16/9; border:2px solid var(--line); background:#000; overflow:hidden}
   #cv{width:100%; height:100%; display:block; image-rendering:pixelated; image-rendering:crisp-edges}
-  #screen::after{ /* scanlines */
+  #screen::after{
     content:""; position:absolute; inset:0; pointer-events:none;
-    background:repeating-linear-gradient(to bottom, rgba(0,0,0,.28) 0 1px, transparent 1px 3px);
+    background:repeating-linear-gradient(to bottom, rgba(0,0,0,.3) 0 1px, transparent 1px 3px);
   }
   #title{
     position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:14px; text-align:center; background:rgba(0,0,0,.35); z-index:2; padding:16px;
+    gap:12px; text-align:center; background:rgba(0,0,0,.35); z-index:2; padding:16px;
   }
   #title h1{
     font-family:var(--pixel); font-weight:normal; margin:0; color:var(--alarm);
@@ -72,32 +87,44 @@
   #title .sub{color:var(--amber)}
   #startBtn{
     font-family:var(--pixel); font-size:clamp(10px,1.6vw,14px); background:#000; color:var(--rig);
-    border:3px solid var(--rig); padding:12px 18px; cursor:pointer; margin-top:8px;
-    box-shadow:4px 4px 0 #0a3a40;
+    border:3px solid var(--rig); padding:12px 18px; cursor:pointer; margin-top:6px; box-shadow:4px 4px 0 #0a3a40;
   }
   #startBtn:hover,#startBtn:focus-visible{background:var(--rig); color:#000; outline:none}
+  #notesPop{
+    position:absolute; inset:6% 6%; z-index:3; background:rgba(4,6,9,.94); border:2px solid var(--rig);
+    padding:14px 16px; overflow:auto; font-size:clamp(18px,2.4vw,24px); color:var(--rig);
+  }
+  #notesPop h2{font-family:var(--pixel); font-size:11px; font-weight:normal; color:var(--amber); margin:0 0 8px; letter-spacing:.1em}
+  #notesPop ul{margin:0; padding-left:20px}
+  #notesPop li{margin:4px 0}
 
   /* ---------- Caixa de texto ---------- */
   #box{
     position:relative; border:4px double var(--line); background:var(--hull);
-    padding:14px 16px 16px; min-height:190px; display:flex; flex-direction:column; gap:10px;
+    padding:14px 16px 18px; min-height:200px; display:flex; flex-direction:column; gap:10px;
   }
   #where{font-family:var(--pixel); font-size:9px; color:var(--dim); letter-spacing:.12em; text-transform:uppercase}
-  #text{font-size:clamp(22px,2.6vw,28px); min-height:2.6em; cursor:pointer; text-wrap:pretty; max-width:62ch}
-  #text.bad{color:#ff8a8a} #text.r1{color:var(--alarm)} #text.r2{color:#ff9a5c} #text.r3{color:var(--amber)}
+  #where.whisper{color:var(--alarm)}
+  #text{font-size:clamp(22px,2.6vw,28px); min-height:2.6em; cursor:pointer; text-wrap:pretty; max-width:64ch}
+  #text.r1{color:var(--alarm)} #text.r2{color:#ff9a5c} #text.r3{color:var(--amber)}
   #text.r4{color:var(--text)} #text.r5{color:var(--good)} #text.r6{color:var(--gold); text-shadow:0 0 8px rgba(255,224,102,.5)}
   #text.clue{color:var(--rig)} #text.fx{color:var(--dim)} #text.item{color:var(--amber)} #text.sys{color:#c79bff}
+  #text.voice{color:#f2c6c6; font-style:italic} #text.inf{color:var(--infect)}
   #next{position:absolute; right:14px; bottom:10px; color:var(--rig); font-family:var(--pixel); font-size:12px; animation:blink .8s steps(2) infinite}
   #panel{display:flex; flex-direction:column; gap:6px}
 
   .opt{
-    all:unset; cursor:pointer; font-family:var(--crt); font-size:clamp(22px,2.5vw,27px); color:var(--text);
+    all:unset; cursor:pointer; font-family:var(--crt); font-size:clamp(21px,2.4vw,26px); color:var(--text);
     padding:2px 8px 2px 30px; position:relative; display:block;
   }
   .opt::before{content:"►"; position:absolute; left:6px; color:var(--amber); opacity:0}
   .opt.sel{color:var(--amber); background:rgba(255,179,71,.08)}
   .opt.sel::before{opacity:1; animation:blink .6s steps(2) infinite}
+  .opt[aria-disabled="true"]{color:#4d5a68; cursor:not-allowed}
   .opt .tag{color:var(--good); font-size:.8em}
+  .opt .tag.warn{color:var(--alarm)}
+  .opt .tag.done{color:var(--dim)}
+  .opt .tag.infx{color:var(--infect)}
   .hint{font-family:var(--pixel); font-size:9px; color:var(--dim); line-height:1.7; letter-spacing:.04em}
 
   .dicebar{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
@@ -108,21 +135,32 @@
   .btn:hover,.btn:focus-visible{background:var(--amber); color:#000; outline:none}
   .btn.small{padding:8px 10px; color:var(--text); border-color:var(--line); box-shadow:none}
   .btn.small:hover,.btn.small:focus-visible{background:var(--text); color:#000}
+  .btn.col{min-width:64px; box-shadow:none; color:#000; border-color:#000; background:var(--c)}
+  .btn.col:hover,.btn.col:focus-visible{outline:2px solid #fff}
   .phys{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
   .phys span{font-family:var(--pixel); font-size:9px; color:var(--dim)}
-
-  .notes{font-size:clamp(20px,2.3vw,25px); color:var(--rig)}
+  .notes{font-size:clamp(19px,2.2vw,24px); color:var(--rig)}
+  .notes ul{margin:2px 0; padding-left:22px}
   .notes li{margin:2px 0}
-  .notes ul{margin:4px 0; padding-left:22px}
-  .legend{display:flex; gap:14px; flex-wrap:wrap; font-family:var(--pixel); font-size:9px; color:var(--dim)}
-  .legend i{display:inline-block; width:10px; height:10px; margin-right:6px; vertical-align:-1px}
 
-  .summary{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:6px 20px; font-size:22px}
+  .setup{display:flex; flex-direction:column; gap:10px}
+  .names{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:8px}
+  .nm{display:flex; flex-direction:column; gap:2px; font-family:var(--pixel); font-size:9px; color:var(--c); letter-spacing:.05em}
+  .nm input, .setup select{
+    font-family:var(--crt); font-size:22px; background:#000; color:var(--text); border:1px solid var(--line); padding:4px 8px; width:100%;
+  }
+  .nm input:focus-visible, .setup select:focus-visible{outline:2px solid var(--rig)}
+  .setrow{display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-family:var(--pixel); font-size:10px; color:var(--dim)}
+  .setrow select{width:auto}
+
+  .summary{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:4px 20px; font-size:22px}
   .summary .k{color:var(--dim)}
   .rank{font-family:var(--pixel); font-size:12px; color:var(--gold); letter-spacing:.08em; margin:4px 0}
+  .rank.dead{color:var(--alarm)}
   table.log{border-collapse:collapse; font-size:20px; width:100%}
-  table.log td{padding:1px 8px 1px 0; vertical-align:top}
-  table.log td.n{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
+  table.log td{padding:1px 10px 1px 0; vertical-align:top}
+  table.log td.n{font-variant-numeric:tabular-nums; white-space:nowrap}
+  table.log .alive{color:var(--good)} table.log .dead{color:var(--alarm)}
   .logwrap{overflow-x:auto}
 
   @keyframes blink{50%{opacity:0}}
@@ -131,6 +169,8 @@
     body{font-size:20px}
     .bar{width:56px}
     .hud-btns{margin-left:0}
+    #crew{grid-template-columns:repeat(4,1fr)}
+    .chip .nm{display:none}
   }
   @media (prefers-reduced-motion:reduce){
     *{animation:none!important; transition:none!important}
@@ -138,26 +178,35 @@
 </style>
 
 <div id="game">
-  <div id="hud" aria-label="Status da equipe">
-    <div class="stat"><b>TRAJE</b><div class="bar" id="bhp"><i></i></div><span class="num" id="nhp">100</span></div>
-    <div class="stat"><b>O2</b><div class="bar o2" id="bo2"><i></i></div><span class="num" id="no2">100</span></div>
-    <div class="stat"><b>MENTE</b><div class="bar san" id="bsan"><i></i></div><span class="num" id="nsan">100</span></div>
-    <div class="stat" id="items"></div>
-    <div class="stat" id="bonus"></div>
-    <div class="hud-btns">
-      <button id="muteBtn" type="button">SOM: ON</button>
-      <button id="fsBtn" type="button">TELA CHEIA</button>
+  <div id="hud" aria-label="Status da tripulação">
+    <div class="row1">
+      <div id="timer">REATOR --:--</div>
+      <div class="stat"><b>MENTE</b><div class="bar" id="bsan"><i></i></div><span class="num" id="nsan">100</span></div>
+      <div class="stat" id="inv"></div>
+      <div class="stat" id="bonus"></div>
+      <div class="hud-btns">
+        <button id="notesBtn" type="button">NOTAS (0)</button>
+        <button id="pauseBtn" type="button">PAUSAR</button>
+        <button id="muteBtn" type="button">SOM: ON</button>
+        <button id="fsBtn" type="button">TELA CHEIA</button>
+      </div>
     </div>
+    <div id="crew"></div>
   </div>
 
   <div id="screen">
     <canvas id="cv" width="320" height="180" aria-label="Cena do jogo"></canvas>
     <div id="title">
       <h1>SINAL MORTO</h1>
-      <p class="sub">FASE 1 · A CELA</p>
-      <p>UM RPG DE TERROR ESPACIAL · 1 DADO · 5 ESCOLHAS</p>
+      <p class="sub">FASE 1 · A TÁRTARO</p>
+      <p>8 TRIPULANTES · 1 DADO · O REATOR NÃO ESPERA</p>
       <button id="startBtn" type="button">► INICIAR MISSÃO</button>
-      <p>ESPAÇO / ENTER / CLIQUE PARA AVANÇAR</p>
+      <p>USE FONES DE OUVIDO. APAGUE AS LUZES.</p>
+    </div>
+    <div id="notesPop" hidden>
+      <h2>NOTAS DA TRIPULAÇÃO</h2>
+      <ul id="notesList"></ul>
+      <p class="hint">Clique para fechar.</p>
     </div>
   </div>
 
@@ -176,244 +225,142 @@ const W = 320, H = 180;
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d");
 ctx.imageSmoothingEnabled = false;
+const mask = document.createElement("canvas"); mask.width = W; mask.height = H;
+const mctx = mask.getContext("2d");
+const $ = id => document.getElementById(id);
+const rnd = n => Math.random() * n | 0;
+const pickOne = a => a.length ? a[rnd(a.length)] : null;
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* =========================================================
+   TRIPULAÇÃO
+   ========================================================= */
+const ROLES = [
+  { n: 1, role: "ENGENHARIA",   tag: "eng", color: "#ff8c1a" },
+  { n: 2, role: "MEDICINA",     tag: "med", color: "#ff5c7a" },
+  { n: 3, role: "SEGURANÇA",    tag: "seg", color: "#4fc3ff" },
+  { n: 4, role: "PILOTAGEM",    tag: "pil", color: "#ffe066" },
+  { n: 5, role: "COMUNICAÇÕES", tag: "com", color: "#39d98a" },
+  { n: 6, role: "MINERAÇÃO",    tag: "min", color: "#c98a4a" },
+  { n: 7, role: "CIÊNCIA",      tag: "cie", color: "#c79bff" },
+  { n: 8, role: "MANUTENÇÃO",   tag: "man", color: "#e0e8f0" },
+];
+const ROLE_OF = Object.fromEntries(ROLES.map(r => [r.tag, r.role]));
+const ITEMS = { cortador: "Cortador de plasma", lanterna: "Lanterna", cartao: "Cartão mestre", soro: "Soro anti-infecção" };
+const RANK = ["DESASTRE", "FRACASSO", "POR UM TRIZ", "SUCESSO", "GRANDE SUCESSO", "EXTRAORDINÁRIO"];
+const COLORS = ["VERMELHO", "AZUL", "VERDE", "AMARELO"];
+const CHEX = ["#d62828", "#2a6fdb", "#2bb24c", "#e0b000"];
+const CLIT = ["#ff6a6a", "#7fb0ff", "#7dff9a", "#fff27a"];
 
 /* =========================================================
    ESTADO
    ========================================================= */
-const S = {};
+const S = { names: loadNames(), minutes: 60 };
+window.__sinal = S;
+let RUN = 0;
+const STOP = { stop: true };
+
+function loadNames() { try { const v = JSON.parse(localStorage.getItem("sinal-names") || "[]"); return Array.isArray(v) ? v : []; } catch (_) { return []; } }
+function saveNames(a) { try { localStorage.setItem("sinal-names", JSON.stringify(a)); } catch (_) {} }
+
 function resetState() {
   Object.assign(S, {
-    mode: "title", scene: 0, view: "title",
-    hp: 100, o2: 100, san: 100,
-    items: [], nextBonus: 0,
-    code: [], clue: 0, attempts: [], entry: "", screenMsg: null,
-    doorOpen: 0, doorOpening: false,
-    dice: null, shake: 0, flash: null, fade: 1,
-    hover: null, sel: 0, label: "", labelUntil: 0,
-    hand: { x: 250, y: 200, tx: 250, ty: 200 }, pressed: null, pressedUntil: 0,
-    log: [], endT0: 0, keypadLocked: false,
+    mode: "title", view: "title", sceneName: "",
+    san: 100, timeLeft: S.minutes * 60000, timerOn: false, paused: false, over: false, warned: {},
+    crew: ROLES.map((r, i) => ({ ...r, name: (S.names[i] || "").trim(), hp: 3, inf: false, turn: false, dead: false, cause: "" })),
+    items: [], doses: 0, nextBonus: 0, flags: {}, notes: [],
+    code: [], clues: [], tried: [], wrong: 0, entry: "", screenMsg: null, keypadLocked: false,
+    seq: [], poem: [], seqIn: [], seqMsg: null, seqShowing: false, threat: 0, lit: -1, litUntil: 0,
+    doorOpen: 0, dice: null, shake: 0, flash: null, fade: 1, scareUntil: 0, banner: null,
+    hover: null, sel: 0, opts: [], extraHots: [], label: "", labelUntil: 0, mouse: null,
+    hand: { x: 250, y: 200, tx: 250, ty: 200 }, pressed: null, pressedUntil: 0, bangT: -9999,
+    log: [], endKind: "escape", endT0: 0,
   });
-  const digits = [0,1,2,3,4,5,6,7,8,9];
-  for (let i = digits.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [digits[i], digits[j]] = [digits[j], digits[i]]; }
-  S.code = digits.slice(0, 4);
+  genPuzzle(); genSequence();
 }
-resetState();
+
+const alive = () => S.crew.filter(c => !c.dead);
+const lab = c => c ? (c.name ? `${c.name} (Nº${c.n})` : `Nº${c.n}`) : "alguém";
 
 /* =========================================================
-   CONTEÚDO — 5 CENAS, 3 OPÇÕES CADA, 6 RESULTADOS POR OPÇÃO
-   fx: hp / o2 / san (variação), clue (0-4, só na cena 1),
-       item (ganha item), next (bônus +1 no próximo dado)
+   ENIGMA 1 — CÓDIGO DA PORTA (sem retorno no teclado)
+   Gera um código de 4 dígitos distintos e um conjunto de pistas
+   lógicas que, juntas, só admitem UMA solução.
    ========================================================= */
-const ITEMS = {
-  cortador: "Cortador de plasma",
-  lanterna: "Lanterna de alta potência",
-  cartao:   "Cartão de acesso mestre",
-};
-const RANK = ["DESASTRE", "FRACASSO", "POR UM TRIZ", "SUCESSO", "GRANDE SUCESSO", "EXTRAORDINÁRIO"];
-
-const SCENES = [
-  {
-    view: "cell", name: "Cena 1/5 · Cela de contenção",
-    intro: [
-      "Um alarme distante ecoa pelos corredores da nave mineradora CSV TÁRTARO.",
-      "Vocês acordam no chão gelado de uma cela de contenção. A cabeça lateja.",
-      "As luzes vermelhas piscam. O ar cheira a ferrugem... e a algo pior.",
-      "Há apenas uma saída: uma porta blindada com um teclado numérico.",
-      "No visor, uma mensagem: INSIRA O CÓDIGO DE 4 DÍGITOS.",
-      "Vocês precisam descobrir o código. O que fazem?",
-    ],
-    hint: "Clique nos objetos da cena ou escolha uma opção abaixo.",
-    extra: [
-      { x: 114, y: 36, w: 92, h: 104, label: "PORTA BLINDADA", desc: "Trancada. Só abre com o código." },
-      { x: 14, y: 30, w: 90, h: 24, label: "ESCRITA NA PAREDE", desc: "Escrito com sangue: ELES OUVEM." },
-      { x: 248, y: 22, w: 44, h: 24, label: "DUTO", desc: "Estreito demais. E algo arranhou a grade por dentro." },
-    ],
-    options: [
-      { label: "Examinar o teclado de perto", hot: { x: 206, y: 74, w: 22, h: 28, label: "TECLADO" }, out: [
-        ["Um curto-circuito! Uma descarga elétrica atravessa as luvas. O traje absorve o pior, mas dói.", { hp: -15, clue: 0 }],
-        ["O teclado está coberto de sangue seco. Não dá para ver nada... e a imagem não sai da cabeça.", { san: -10, clue: 0 }],
-        ["Duas teclas estão mais gastas que as outras. Já é um começo.", { clue: 1 }],
-        ["Sob a luz vermelha, quatro teclas brilham de gordura de dedos. São elas!", { clue: 2 }],
-        ["Quatro teclas gastas, e uma digital ensanguentada mostra qual foi apertada primeiro.", { clue: 3 }],
-        ["Atrás da tampa do teclado há um adesivo de manutenção com o código completo. E um cortador de plasma preso ao painel!", { clue: 4, item: "cortador" }],
-      ]},
-      { label: "Religar o terminal quebrado", hot: { x: 34, y: 72, w: 50, h: 44, label: "TERMINAL" }, out: [
-        ["O terminal explode em faíscas e uma fumaça tóxica enche a cela.", { o2: -15, hp: -5, clue: 0 }],
-        ["A tela liga só para repetir uma frase: ELES ESTÃO NAS PAREDES. Depois apaga.", { san: -10, clue: 0 }],
-        ["Fragmentos do registro de acesso: dois números aparecem antes de a tela congelar.", { clue: 1 }],
-        ["O registro de segurança mostra os quatro dígitos usados, embaralhados pela corrupção dos dados.", { clue: 2 }],
-        ["Registro quase intacto: os quatro dígitos e qual deles vem primeiro.", { clue: 3 }],
-        ["O terminal volta com energia total. O código aparece na tela e o sistema reabastece o oxigênio dos trajes.", { clue: 4, o2: 20 }],
-      ]},
-      { label: "Revistar o corpo do engenheiro", hot: { x: 228, y: 132, w: 66, h: 24, label: "CORPO DO ENGENHEIRO" }, out: [
-        ["Quando vocês tocam o corpo, ele se contorce! Foi só um espasmo... não foi? O susto derruba todos.", { san: -15, hp: -5, clue: 0 }],
-        ["Os bolsos estão vazios. Só há arranhões na parede, como se ele tentasse cavar para fora.", { san: -5, clue: 0 }],
-        ["Um bilhete rasgado com dois números rabiscados.", { clue: 1 }],
-        ["Na palma da mão dele, escritos a caneta: quatro números, fora de ordem.", { clue: 2 }],
-        ["Um diário de bolso: \"nunca esqueço por qual número começa\". Com isso, dá para tentar.", { clue: 3 }],
-        ["O crachá do engenheiro tem o código gravado. No cinto, um kit médico intacto!", { clue: 4, hp: 20 }],
-      ]},
-    ],
-  },
-  {
-    view: "corridor", name: "Cena 2/5 · Corredor B-7",
-    intro: [
-      "A porta se abre com um chiado. Adiante, um corredor longo e estreito.",
-      "Metade das lâmpadas está quebrada. A outra metade pisca sem ritmo.",
-      "Um rastro escuro atravessa o chão e sobe até um duto de ventilação.",
-      "Então, um som. Algo se arrastando dentro das paredes.",
-    ],
-    extra: [{ x: 60, y: 150, w: 200, h: 30, label: "RASTRO ESCURO", desc: "Ainda está úmido." }],
-    options: [
-      { label: "Correr até o fim do corredor", hot: { x: 138, y: 60, w: 44, h: 46, label: "PORTA DO FIM" }, out: [
-        ["Alguém escorrega no rastro escuro e todos se chocam contra a parede. Um visor trinca.", { hp: -20 }],
-        ["Vocês correm tanto que o oxigênio dos trajes despenca. Chegam ao fim ofegantes.", { o2: -15 }],
-        ["Chegam do outro lado com o coração na garganta. Nada os seguiu. Por enquanto.", { san: -5 }],
-        ["Uma corrida limpa. A porta do fim se abre sozinha, como se esperasse por vocês.", {}],
-        ["No meio da corrida, vocês apanham um cilindro de oxigênio caído no chão.", { o2: 15 }],
-        ["Vocês passam tão rápido que o duto se fecha atrás, prendendo o que estava lá. Um grito inumano ecoa e silencia.", { san: 10, next: 1 }],
-      ]},
-      { label: "Esconder-se atrás das caixas", hot: { x: 14, y: 94, w: 54, h: 62, label: "CAIXAS DE CARGA" }, out: [
-        ["As caixas desabam com um estrondo metálico. Algo no duto escuta e bate nas paredes, furioso.", { san: -15, hp: -5 }],
-        ["O esconderijo é apertado e escuro. Minutos se passam ouvindo respirações que não são de vocês.", { san: -10 }],
-        ["Uma sombra passa pelo teto e segue adiante. Vocês esperam, e seguem também.", { o2: -5 }],
-        ["Escondidos, vocês veem a criatura sair do duto e ir para o outro lado. Caminho livre.", {}],
-        ["Atrás das caixas há um estoque de suprimentos esquecido.", { hp: 10, o2: 10 }],
-        ["Entre as caixas, uma estação de reparo de trajes ainda funcionando!", { hp: 25, next: 1 }],
-      ]},
-      { label: "Investigar o duto de ventilação", hot: { x: 248, y: 64, w: 38, h: 32, label: "DUTO DE VENTILAÇÃO" }, out: [
-        ["Um braço longo e ossudo sai do duto e agarra uma perna! Vocês puxam com força e se soltam, machucados.", { hp: -20, san: -10 }],
-        ["Olhos amarelos brilham no escuro. Eles piscam. Vocês recuam devagar.", { san: -15 }],
-        ["O duto está vazio, mas o cheiro é insuportável. Alguma coisa mora ali.", { san: -5 }],
-        ["Dentro do duto, um mapa rabiscado da nave indica o caminho até a enfermaria.", {}],
-        ["Presa na grade, uma lanterna de alta potência. Vai ser útil no escuro.", { item: "lanterna" }],
-        ["Vocês soldam a grade com um maçarico esquecido ali. O duto está selado: nada mais sai dele.", { san: 10, next: 1 }],
-      ]},
-    ],
-  },
-  {
-    view: "medbay", name: "Cena 3/5 · Enfermaria",
-    intro: [
-      "A trilha leva até a enfermaria. As macas estão reviradas.",
-      "Um monitor cardíaco ainda apita, ligado a... ninguém.",
-      "Sobre uma das macas, um lençol cobre uma forma humana. Ele parece respirar.",
-      "Num canto, um gravador de áudio pisca em vermelho: 1 MENSAGEM.",
-    ],
-    extra: [
-      { x: 38, y: 36, w: 56, h: 36, label: "MONITOR CARDÍACO", desc: "Os batimentos na tela não param. De quem são?" },
-      { x: 196, y: 44, w: 26, h: 26, label: "MARCAS DE MÃOS", desc: "Mãos ensanguentadas. Dedos compridos demais." },
-    ],
-    options: [
-      { label: "Ouvir o registro de áudio", hot: { x: 150, y: 102, w: 44, h: 22, label: "GRAVADOR" }, out: [
-        ["A gravação é só gritos. Longos, desesperados. Termina com um som úmido.", { san: -20 }],
-        ["Uma voz sussurra números sem sentido e ri. Vocês desligam antes do fim.", { san: -10 }],
-        ["\"...o sinal vem do planeta. Não olhem para ele.\" A gravação corta.", { san: -5 }],
-        ["A médica de bordo explica que a evacuação foi para o HANGAR 3. Há uma nave de fuga lá!", {}],
-        ["O registro indica o caminho mais seguro até o hangar e onde estão os remédios.", { hp: 10, next: 1 }],
-        ["A médica deixou a fórmula de um estimulante. Vocês o preparam e todos se sentem renovados.", { hp: 20, san: 15 }],
-      ]},
-      { label: "Pegar suprimentos médicos", hot: { x: 232, y: 56, w: 58, h: 86, label: "ARMÁRIO MÉDICO" }, out: [
-        ["O armário tinha uma armadilha. Uma seringa quebrada perfura a luva.", { hp: -15, san: -5 }],
-        ["Só frascos vazios e bandagens sujas. A busca consome oxigênio precioso.", { o2: -10 }],
-        ["Algumas bandagens limpas. Ajuda um pouco.", { hp: 5 }],
-        ["Um kit de primeiros socorros completo.", { hp: 15 }],
-        ["Kits médicos e cilindros de oxigênio!", { hp: 15, o2: 15 }],
-        ["Uma câmara de estase médica ainda funciona. Alguns minutos lá dentro e todos saem como novos.", { hp: 30, o2: 20, san: 10 }],
-      ]},
-      { label: "Levantar o lençol da maca", bonusItem: "lanterna", hot: { x: 18, y: 86, w: 94, h: 34, label: "MACA COBERTA" }, out: [
-        ["O corpo se senta de uma vez! Garras rasgam o ar. Vocês fogem feridos, e ele desaba de novo, imóvel.", { hp: -20, san: -15 }],
-        ["Não é humano. Não mais. Vocês nunca vão esquecer aquele rosto.", { san: -20 }],
-        ["Apenas um tripulante sem vida. No bolso dele, uma foto de família.", { san: -5 }],
-        ["Um tripulante em coma induzido, vivo! Ele sussurra: \"hangar... três\".", {}],
-        ["O paciente segura um injetor de adrenalina. Vocês o pegam com cuidado.", { next: 1 }],
-        ["O tripulante acorda por um instante e entrega um cartão de acesso mestre antes de adormecer de novo.", { item: "cartao" }],
-      ]},
-    ],
-  },
-  {
-    view: "void", name: "Cena 4/5 · Anel de observação",
-    intro: [
-      "O caminho até o hangar passa pelo Anel de Observação.",
-      "Metade da parede sumiu. Não há gravidade. Não há som.",
-      "Lá fora, um planeta partido ao meio flutua em silêncio, sangrando luz vermelha.",
-      "Destroços, e outras coisas, giram devagar no vazio. Vocês precisam atravessar.",
-    ],
-    extra: [{ x: 170, y: 20, w: 110, h: 96, label: "PLANETA PARTIDO", desc: "Olhar para ele dá dor de cabeça. E vontade de continuar olhando." }],
-    options: [
-      { label: "Impulsionar-se pelo vazio", hot: { x: 112, y: 136, w: 96, h: 44, label: "O VAZIO" }, out: [
-        ["O salto sai torto. Vocês giram sem controle e batem num destroço. O traje dispara alarmes.", { hp: -20, o2: -10 }],
-        ["Vocês chegam, mas gastam muito oxigênio nos propulsores das botas.", { o2: -20 }],
-        ["Um corpo congelado passa a centímetros do visor. Vocês chegam, trêmulos.", { san: -10 }],
-        ["Um salto preciso. Vocês flutuam até o outro lado em perfeito silêncio.", {}],
-        ["No caminho, vocês agarram um tanque de oxigênio que flutuava por ali.", { o2: 20 }],
-        ["Um salto perfeito, digno de astronauta de elite. De quebra, avistam o Hangar 3 com as luzes acesas!", { san: 15, next: 1 }],
-      ]},
-      { label: "Prender-se ao cabo de segurança", hot: { x: 104, y: 118, w: 112, h: 16, label: "CABO DE SEGURANÇA" }, out: [
-        ["O cabo se rompe no meio do caminho! Vocês se agarram à estrutura por um triz.", { hp: -10, san: -15 }],
-        ["O cabo está emaranhado em destroços. Soltá-lo leva tempo demais.", { o2: -15 }],
-        ["Travessia lenta, mas segura.", { o2: -5 }],
-        ["O cabo aguenta firme. Vocês atravessam juntos, em fila.", {}],
-        ["Presos ao cabo, vocês ainda recolhem peças para reparar os trajes.", { hp: 15 }],
-        ["O cabo tem um carrinho de transporte! Vocês deslizam até o outro lado sem esforço.", { hp: 10, o2: 10, next: 1 }],
-      ]},
-      { label: "Religar a gravidade no painel", hot: { x: 276, y: 92, w: 32, h: 40, label: "PAINEL DE GRAVIDADE" }, out: [
-        ["A gravidade volta de uma vez, com vocês a três metros do chão.", { hp: -20 }],
-        ["O painel dá choque e a gravidade oscila, jogando todos de um lado para o outro.", { hp: -10, san: -5 }],
-        ["A gravidade volta aos poucos. Tudo o que flutuava cai, inclusive coisas que vocês preferiam não ver.", { san: -10 }],
-        ["Gravidade restaurada. Vocês atravessam com as botas magnéticas.", {}],
-        ["O painel também reativa o ar da seção! Vocês recarregam os tanques.", { o2: 20 }],
-        ["O painel religa o setor inteiro: luzes, ar e gravidade. Pela primeira vez, a nave parece segura.", { o2: 20, san: 15 }],
-      ]},
-    ],
-  },
-  {
-    view: "hangar", name: "Cena 5/5 · Hangar 3",
-    intro: [
-      "O Hangar 3. Uma pequena nave de fuga espera com as luzes de embarque acesas.",
-      "Mas entre vocês e a rampa há algo.",
-      "Uma silhueta alta, magra demais, com membros que dobram para o lado errado.",
-      "Ela ainda não os viu. Esta é a última escolha.",
-    ],
-    extra: [],
-    options: [
-      { label: "Afugentar a criatura com o cortador de plasma", bonusItem: "cortador", hot: { x: 94, y: 44, w: 48, h: 78, label: "A CRIATURA" }, out: [
-        ["O cortador engasga. A criatura derruba todos com um golpe. Vocês se arrastam até a rampa, feridos, mas vivos.", { hp: -25, san: -10 }],
-        ["O disparo erra. A criatura grita, um som que parece vir de dentro da cabeça. Vocês correm para a nave.", { san: -20 }],
-        ["Um tiro de raspão a faz recuar para as sombras. Vocês embarcam às pressas.", { san: -5 }],
-        ["Um disparo certeiro num dos membros. A criatura foge pelo duto. Caminho livre.", {}],
-        ["Dois disparos precisos! A criatura cai e não se levanta. Vocês embarcam com calma.", { san: 10 }],
-        ["Um único disparo corta os membros da criatura, a regra de ouro da sobrevivência. Ela desaba. A tripulação comemora!", { san: 20, hp: 10 }],
-      ]},
-      { label: "Correr direto para a nave de fuga", bonusItem: "cartao", hot: { x: 196, y: 82, w: 112, h: 58, label: "NAVE DE FUGA" }, out: [
-        ["A criatura percebe e salta! Garras arranham os trajes. Vocês fecham a escotilha no último segundo.", { hp: -25 }],
-        ["A rampa está travada. Vocês a forçam enquanto a criatura se aproxima. Conseguem, por pouco.", { san: -15, o2: -10 }],
-        ["Vocês embarcam. A criatura bate no casco uma, duas vezes... e para.", { san: -5 }],
-        ["Uma corrida silenciosa e perfeita. A escotilha se fecha antes que ela perceba.", {}],
-        ["Vocês embarcam e ligam os motores. O calor da decolagem afasta a criatura.", { san: 10 }],
-        ["O jato dos motores lança a criatura para o vácuo pelas portas do hangar. Adeus!", { san: 20 }],
-      ]},
-      { label: "Criar uma distração e enviar um sinal de socorro", hot: { x: 10, y: 94, w: 46, h: 40, label: "CONSOLE DE COMUNICAÇÃO" }, out: [
-        ["O transmissor chia alto demais. A criatura se vira para vocês. Todos correm feridos até a nave.", { hp: -20, san: -10 }],
-        ["A distração falha e o sinal não sai. Vocês embarcam às cegas.", { san: -10 }],
-        ["Uma lata arremessada a distrai. Vocês embarcam, mas sem tempo para o sinal.", {}],
-        ["Distração perfeita e sinal enviado. Alguém, em algum lugar, vai ouvir.", { san: 5 }],
-        ["O sinal é respondido na hora: uma nave de resgate está a caminho!", { san: 15 }],
-        ["A distração atrai a criatura para a câmara de descompressão. Vocês a ejetam no espaço, e o resgate confirma: estão salvos!", { san: 20, hp: 10 }],
-      ]},
-    ],
-  },
-];
-
-const ENDING = [
-  "Os motores rugem. A nave de fuga atravessa as portas do hangar e mergulha no escuro.",
-  "Pela janela, a CSV TÁRTARO fica cada vez menor.",
-  "Todos sobreviveram. Por enquanto.",
-  "Mas no painel da nave, uma luz começa a piscar...",
-  { t: "SINAL DESCONHECIDO DETECTADO. ORIGEM: A BORDO.", cls: "r1" },
-];
+const POS = ["primeiro", "segundo", "terceiro", "quarto"];
+const ALLCODES = (() => { const out = []; for (let a = 0; a < 10; a++) for (let b = 0; b < 10; b++) for (let c = 0; c < 10; c++) for (let d = 0; d < 10; d++) if (new Set([a, b, c, d]).size === 4) out.push([a, b, c, d]); return out; })();
+function genPuzzle() {
+  for (let tries = 0; tries < 400; tries++) {
+    const code = shuffle([0,1,2,3,4,5,6,7,8,9]).slice(0, 4);
+    const pool = [];
+    const sum = code.reduce((a, b) => a + b, 0);
+    pool.push({ t: `A soma dos quatro dígitos é ${sum}.`, f: c => c[0] + c[1] + c[2] + c[3] === sum, w: 2 });
+    for (let i = 0; i < 4; i++) {
+      const par = code[i] % 2 === 0;
+      pool.push({ t: `O ${POS[i]} dígito é ${par ? "par" : "ímpar"}.`, f: c => (c[i] % 2 === 0) === par });
+      if (code[i] % 3 === 0) pool.push({ t: `O ${POS[i]} dígito é múltiplo de 3.`, f: c => c[i] % 3 === 0 });
+      if (code[i] >= 5) pool.push({ t: `O ${POS[i]} dígito é maior que 4.`, f: c => c[i] >= 5 });
+      else pool.push({ t: `O ${POS[i]} dígito é menor que 5.`, f: c => c[i] < 5 });
+    }
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+      if (i === j) continue;
+      const d = code[i] - code[j];
+      if (i < j) pool.push({ t: `O ${POS[i]} dígito é ${d > 0 ? "maior" : "menor"} que o ${POS[j]}.`, f: c => (c[i] > c[j]) === (d > 0) });
+      if (d >= 2) pool.push({ t: `O ${POS[i]} dígito menos o ${POS[j]} dá ${d}.`, f: c => c[i] - c[j] === d, w: 2 });
+      if (i < j) { const s = code[i] + code[j]; pool.push({ t: `O ${POS[i]} e o ${POS[j]} dígitos somam ${s}.`, f: c => c[i] + c[j] === s }); }
+    }
+    const absent = shuffle([0,1,2,3,4,5,6,7,8,9].filter(d => !code.includes(d)));
+    for (let k = 0; k + 1 < absent.length; k += 2) { const a = absent[k], b = absent[k + 1]; pool.push({ t: `Não existe ${a} nem ${b} no código.`, f: c => !c.includes(a) && !c.includes(b) }); }
+    const mx = code.indexOf(Math.max(...code)), mn = code.indexOf(Math.min(...code));
+    pool.push({ t: `O maior dígito é o ${POS[mx]}.`, f: c => c.indexOf(Math.max(...c)) === mx });
+    pool.push({ t: `O menor dígito é o ${POS[mn]}.`, f: c => c.indexOf(Math.min(...c)) === mn });
+    shuffle(pool);
+    let cand = ALLCODES; const chosen = [];
+    for (const cl of pool) {
+      const next = cand.filter(cl.f);
+      if (next.length < cand.length) { chosen.push(cl); cand = next; }
+      if (cand.length === 1) break;
+    }
+    if (cand.length !== 1 || chosen.length < 5 || chosen.length > 8) continue;
+    // Remove pistas redundantes (continua havendo solução única sem elas)
+    for (let k = chosen.length - 1; k >= 0 && chosen.length > 5; k--) {
+      const rest = chosen.filter((_, x) => x !== k);
+      if (ALLCODES.filter(c => rest.every(r => r.f(c))).length === 1) chosen.splice(k, 1);
+    }
+    S.code = code;
+    const SRC = ["wall", "term", "locker", "corpse"];
+    S.clues = shuffle(chosen).map((c, i) => ({ src: SRC[i % 4], t: c.t }));
+    return;
+  }
+}
 
 /* =========================================================
-   ÁUDIO 8-BIT (Web Audio)
+   ENIGMA 2 — SEQUÊNCIA DE IGNIÇÃO (cores escondidas numa cantiga)
+   ========================================================= */
+const METAPHORS = [
+  ["o sangue", "a brasa", "a ferida aberta", "o alarme"],
+  ["o céu da Terra", "o gelo", "o mar", "a veia fria"],
+  ["a folha", "o musgo", "o veneno", "a grama de casa"],
+  ["o sol", "o ouro", "os olhos deles", "a gema do ovo"],
+];
+function genSequence() {
+  S.seq = Array.from({ length: 6 }, () => rnd(4));
+  for (let i = 1; i < 6; i++) if (S.seq[i] === S.seq[i - 1] && Math.random() < 0.6) S.seq[i] = (S.seq[i] + 1 + rnd(3)) % 4;
+  S.poem = S.seq.map(c => pickOne(METAPHORS[c]));
+}
+function poemText() {
+  const m = S.poem;
+  return `Primeiro ${m[0]}, depois ${m[1]}; então ${m[2]}, logo ${m[3]}; em seguida ${m[4]}, e por fim ${m[5]}.`;
+}
+function addNote(t, cls = "clue") {
+  if (S.notes.some(n => n.t === t)) return;
+  S.notes.push({ t, cls });
+  hud();
+}
+
+/* =========================================================
+   ÁUDIO 8-BIT
    ========================================================= */
 let AC = null, master = null, muted = false, noiseBuf = null, ambTimer = null;
 function initAudio() {
@@ -421,11 +368,11 @@ function initAudio() {
   const Ctor = window.AudioContext || window.webkitAudioContext;
   if (!Ctor) return;
   AC = new Ctor();
-  master = AC.createGain(); master.gain.value = 0.55; master.connect(AC.destination);
+  master = AC.createGain(); master.gain.value = muted ? 0 : 0.55; master.connect(AC.destination);
   noiseBuf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate);
   const a = noiseBuf.getChannelData(0);
   let hold = 0;
-  for (let i = 0; i < a.length; i++) { if (i % 6 === 0) hold = Math.random() * 2 - 1; a[i] = hold; } // ruído "crocante"
+  for (let i = 0; i < a.length; i++) { if (i % 6 === 0) hold = Math.random() * 2 - 1; a[i] = hold; }
 }
 function tone(f, d, type = "square", v = 0.1, w = 0, f2 = null) {
   if (!AC) return;
@@ -446,15 +393,22 @@ function noise(d, v = 0.1, ff = 2000, w = 0, ff2 = null, ftype = "lowpass") {
   s.connect(f); f.connect(g); g.connect(master); s.start(t0); s.stop(t0 + d + 0.03);
 }
 const SFX = {
-  type()   { tone(420 + Math.random() * 60, 0.035, "square", 0.035); },
-  move()   { tone(740, 0.04, "square", 0.06); },
-  confirm(){ tone(660, 0.06, "square", 0.08); tone(990, 0.09, "square", 0.08, 0.06); },
+  type()   { tone(380 + Math.random() * 50, 0.035, "square", 0.03); },
+  move()   { tone(740, 0.04, "square", 0.05); },
+  confirm(){ tone(520, 0.06, "square", 0.07); tone(780, 0.09, "square", 0.07, 0.06); },
   tick()   { noise(0.03, 0.12, 3500); tone(200 + Math.random() * 300, 0.02, "square", 0.03); },
   key()    { tone(1250, 0.07, "square", 0.07); },
   error()  { tone(130, 0.3, "sawtooth", 0.13); tone(138, 0.3, "square", 0.08); },
   success(){ [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.12, "square", 0.08, i * 0.08)); },
   door()   { noise(1.5, 0.22, 250, 0, 3000); tone(80, 1.4, "sawtooth", 0.07, 0, 38); },
-  whoosh() { noise(0.8, 0.15, 3000, 0, 200); },
+  whoosh() { noise(0.9, 0.15, 3000, 0, 150); },
+  bang()   { noise(0.35, 0.5, 400, 0, 60); tone(55, 0.3, "sine", 0.5, 0, 35); },
+  alarm()  { for (let i = 0; i < 4; i++) { tone(880, 0.18, "square", 0.07, i * 0.4); tone(622, 0.18, "square", 0.07, i * 0.4 + 0.2); } },
+  death()  { tone(900, 1.8, "sawtooth", 0.1, 0, 50); tone(933, 1.8, "square", 0.06, 0, 52); noise(1.2, 0.3, 1500, 0, 80); tone(49, 2, "sine", 0.4); },
+  scare()  { noise(0.5, 0.7, 6000, 0, 800, "highpass"); [1480, 1560, 1661].forEach(f => tone(f, 0.45, "square", 0.08)); tone(90, 0.6, "sawtooth", 0.3, 0, 40); },
+  heart()  { tone(58, 0.14, "sine", 0.4); tone(55, 0.14, "sine", 0.34, 0.24); },
+  whisper(){ noise(1.2, 0.08, 1600, 0, 500, "bandpass"); },
+  color(c) { tone([262, 330, 392, 523][c], 0.22, "square", 0.09); },
   result(n) {
     if (n === 1) { tone(220, 1.2, "sawtooth", 0.11, 0, 100); tone(233, 1.2, "sawtooth", 0.11, 0, 104); tone(311, 1, "square", 0.05, 0, 140); noise(0.7, 0.3, 900, 0, 90); }
     else if (n === 2) { tone(196, 0.35, "square", 0.09, 0, 150); tone(185, 0.5, "square", 0.08, 0.2, 90); }
@@ -466,10 +420,10 @@ const SFX = {
 };
 function startAmbient() {
   if (!AC || ambTimer) return;
-  const g = AC.createGain(); g.gain.value = 0.045;
+  const g = AC.createGain(); g.gain.value = 0.05;
   const f = AC.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 170;
   const o1 = AC.createOscillator(); o1.type = "sawtooth"; o1.frequency.value = 55;
-  const o2 = AC.createOscillator(); o2.type = "square"; o2.frequency.value = 77.8; // trítono: tensão
+  const o2 = AC.createOscillator(); o2.type = "square"; o2.frequency.value = 77.8;
   const lfo = AC.createOscillator(); lfo.frequency.value = 0.07;
   const lg = AC.createGain(); lg.gain.value = 80;
   lfo.connect(lg); lg.connect(f.frequency);
@@ -477,22 +431,29 @@ function startAmbient() {
   o1.start(); o2.start(); lfo.start();
   const ev = () => {
     const r = Math.random();
-    if (S.mode !== "title") {
-      if (r < 0.3) tone(320, 0.9, "sawtooth", 0.035, 0, 90);           // rangido metálico
-      else if (r < 0.55) tone(70, 0.35, "sine", 0.28, 0, 38);          // pancada distante
-      else if (r < 0.75) noise(0.7, 0.05, 1300, 0, 700, "bandpass");   // sussurro
-      else { tone(180, 0.08, "square", 0.05); tone(191, 0.1, "square", 0.04, 0.09); }
-      if (S.san < 40) { tone(58, 0.14, "sine", 0.35, 0.2); tone(55, 0.14, "sine", 0.3, 0.45); } // coração
+    if (S.mode !== "title" && S.mode !== "setup" && !S.over) {
+      if (r < 0.25) tone(320, 0.9, "sawtooth", 0.035, 0, 90);
+      else if (r < 0.5) tone(70, 0.35, "sine", 0.3, 0, 38);
+      else if (r < 0.7) SFX.whisper();
+      else if (r < 0.85) { tone(180, 0.08, "square", 0.05); tone(191, 0.1, "square", 0.04, 0.09); }
+      else noise(0.2, 0.2, 500, 0, 100);
+      if (S.san < 45) whisperText();
     }
-    ambTimer = setTimeout(ev, 5000 + Math.random() * 7000);
+    ambTimer = setTimeout(ev, 4000 + Math.random() * 6000);
   };
   ambTimer = setTimeout(ev, 3000);
+}
+const WHISPERS = ["ELES OUVEM VOCÊS", "NINGUÉM VAI SAIR", "OLHE PARA TRÁS", "ALGUÉM AQUI JÁ ESTÁ INFECTADO", "FIQUE. FIQUE CONOSCO.", "VOCÊS ESTÃO EM OITO?"];
+function whisperText() {
+  const el = $("where"), old = el.textContent;
+  el.textContent = pickOne(WHISPERS); el.classList.add("whisper");
+  setTimeout(() => { if (el.classList.contains("whisper")) { el.textContent = old; el.classList.remove("whisper"); } }, 900);
 }
 
 /* =========================================================
    DESENHO — utilitários
    ========================================================= */
-let T = 0;
+let T = 0, lastT = 0;
 function R(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.floor(x), Math.floor(y), Math.ceil(w), Math.ceil(h)); }
 function txt(s, x, y, c, align = "left", size = 8) {
   ctx.font = size + 'px "Press Start 2P", monospace';
@@ -516,13 +477,14 @@ function brackets(h, c) {
   R(x, y, L, 1, c); R(x, y, 1, L, c); R(x + w - L, y, L, 1, c); R(x + w - 1, y, 1, L, c);
   R(x, y + hh - 1, L, 1, c); R(x, y + hh - L, 1, L, c); R(x + w - L, y + hh - 1, L, 1, c); R(x + w - 1, y + hh - L, 1, L, c);
 }
+const DIG = ["111101101101111","010110010010111","111001111100111","111001111001111","101101111001001","111100111001111","111100111101111","111001001001001","111101111101111","111101111001111"];
+function digit(n, x, y, c) { const p = DIG[n]; for (let i = 0; i < 15; i++) if (p[i] === "1") R(x + i % 3, y + (i / 3 | 0), 1, 1, c); }
 
-/* Tripulante visto de costas, com a barra de vida na coluna do traje */
-const CREW = ["#ff8c1a", "#39d98a", "#4fc3ff"];
-function crewMember(x, y, accent, phase, float = 0) {
+/* Tripulante de costas: barra de vida na coluna, número no capacete */
+function crewMember(c, x, y, phase, float = 0) {
   const bob = Math.round(Math.sin(T / 450 + phase) * (float ? 3 : 0.6));
   y += bob;
-  const suit = "#4a4034", dark = "#2c261e";
+  const suit = "#4a4034", dark = "#2c261e", accent = c.color;
   R(x - 5, y - 12, 4, 11, dark); R(x + 1, y - 12, 4, 11, dark);
   R(x - 6, y - 3, 5, 3, "#1a1714"); R(x + 1, y - 3, 5, 3, "#1a1714");
   R(x - 7, y - 28, 14, 17, suit);
@@ -530,48 +492,51 @@ function crewMember(x, y, accent, phase, float = 0) {
   R(x - 10, y - 28, 4, 1, accent); R(x + 6, y - 28, 4, 1, accent);
   R(x - 10, y - 22, 3, 11, dark); R(x + 7, y - 22, 3, 11, dark);
   R(x - 4, y - 27, 8, 13, "#23201b");
-  // barra de vida (coluna)
-  const frac = S.hp / 100, col = frac > 0.5 ? "#5ff0ff" : frac > 0.25 ? "#ffe066" : "#ff3b3b";
+  const frac = c.hp / 3, col = c.hp >= 3 ? "#5ff0ff" : c.hp === 2 ? "#ffe066" : "#ff3b3b";
   R(x - 1, y - 26, 3, 11, "#081418");
-  const fill = Math.max(1, Math.round(11 * frac));
-  const on = frac > 0.25 || Math.floor(T / 250) % 2;
-  if (on) R(x - 1, y - 26 + (11 - fill), 3, fill, col);
+  const fill = Math.round(11 * frac);
+  if (c.hp > 1 || Math.floor(T / 250) % 2) R(x - 1, y - 26 + (11 - fill), 3, fill, col);
   for (let k = 0; k < 4; k++) R(x - 1, y - 24 + k * 3, 3, 1, "#081418");
-  // capacete segmentado
+  if (c.inf && Math.floor(T / 600 + c.n) % 3) { R(x - 6, y - 20, 1, 5, "#1a2a08"); R(x + 4, y - 25, 1, 6, "#1a2a08"); R(x - 5, y - 16, 2, 1, "#9dff3b"); }
   R(x - 5, y - 38, 10, 10, "#3a3f45");
-  R(x - 5, y - 35, 10, 1, "#24282d"); R(x - 5, y - 32, 10, 1, "#24282d");
+  R(x - 5, y - 30, 10, 1, "#24282d");
   R(x - 3, y - 38, 6, 1, "#5d646c");
+  digit(c.n, x - 1, y - 36, accent);
   R(x - 6, y - 34, 1, 4, accent); R(x + 5, y - 34, 1, 4, accent);
 }
-function crewRow(xs, y, float = 0) { xs.forEach((x, i) => crewMember(x, y, CREW[i], i * 1.7, float)); }
+function crewRow(cx, y, sp = 22, float = 0) {
+  const order = S.crew.map((c, i) => ({ c, i })).sort((a, b) => (b.i % 2) - (a.i % 2));
+  for (const { c, i } of order) {
+    if (c.dead) continue;
+    const x = cx + (i - 3.5) * sp;
+    crewMember(c, Math.round(x), y - (i % 2 ? 5 : 0), i * 1.7, float);
+  }
+}
 
 /* =========================================================
-   CENAS
+   CENÁRIOS
    ========================================================= */
-function drawCell() {
-  R(0, 0, W, H, "#0d1117");
-  for (let x = 0; x < W; x += 40) { R(x, 0, 1, 140, "#1c242e"); R(x + 1, 0, 1, 140, "#07090c"); }
+function wallPanels(base = "#0d1117", line = "#1c242e") {
+  R(0, 0, W, H, base);
+  for (let x = 0; x < W; x += 40) { R(x, 0, 1, 140, line); R(x + 1, 0, 1, 140, "#07090c"); }
   for (let y = 20; y < 140; y += 40) R(0, y, W, 1, "#1a212b");
-  for (let x = 6; x < W; x += 40) for (let y = 26; y < 140; y += 40) { R(x, y, 1, 1, "#2a3440"); R(x + 28, y, 1, 1, "#2a3440"); }
   R(0, 6, W, 5, "#1f2730"); R(0, 7, W, 1, "#2c3642");
   R(0, 140, W, 40, "#0a0c0f"); R(0, 140, W, 2, "#232b35");
   for (let x = 0; x < W; x += 8) R(x, 142, 1, 38, "#12161b");
-  for (let y = 150; y < H; y += 8) R(0, y, W, 1, "#101318");
+}
 
-  // luz de alarme
+function drawCell() {
+  wallPanels();
+  for (let x = 6; x < W; x += 40) for (let y = 26; y < 140; y += 40) { R(x, y, 1, 1, "#2a3440"); R(x + 28, y, 1, 1, "#2a3440"); }
   const on = flicker(1, 120) && Math.sin(T / 300) > -0.3;
   R(138, 11, 44, 4, "#2a2f36");
   R(140, 15, 40, 2, on ? "#ff3030" : "#4a1010");
   if (on) alpha(0.10 + 0.05 * Math.sin(T / 200), () => { for (let r = 70; r > 0; r -= 10) disc(160, 18, r, "#ff2020"); });
-
-  // escrita na parede
   txt("ELES OUVEM", 18, 36, "#6b1010");
   [22, 41, 58, 75, 90].forEach((x, i) => R(x, 44, 1, 3 + (i * 7) % 8, "#5a0c0c"));
-
   // porta
   R(112, 34, 96, 108, "#1c232c"); R(114, 36, 92, 2, "#2e3947");
   R(116, 40, 88, 100, "#020304");
-  if (S.doorOpen > 0) { for (let i = 0; i < 4; i++) R(150 + i * 5, 60 + i * 12, 20 - i * 5, 1, "#1c3a2a"); R(158, 110, 4, 2, "#39d98a"); }
   const off = S.doorOpen * 44;
   ctx.save(); ctx.beginPath(); ctx.rect(116, 40, 88, 100); ctx.clip();
   for (const side of [0, 1]) {
@@ -583,36 +548,33 @@ function drawCell() {
     for (let r = 0; r < 12; r++) for (let k = -12; k < 44; k += 8) { const xx = k + r; if (xx >= 0 && xx < 41) R(lx + xx, 126 + r, 4, 1, "#c9971b"); }
   }
   txt("C-03", 145 - off, 88, "#4b5663");
+  if (S.bangT > 0 && T - S.bangT < 160) R(150, 60, 20, 20, "#3b4552");
   ctx.restore();
-
   // teclado
   const blink = Math.floor(T / 500) % 2;
   R(210, 76, 14, 22, "#1b2129"); R(210, 76, 14, 1, "#394452");
   R(211, 78, 12, 5, S.doorOpen > 0 ? "#0d4a22" : blink ? "#0b3a1a" : "#062010");
   for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) R(212 + i * 4, 86 + j * 4, 2, 2, "#5b6878");
   R(221, 94, 2, 2, S.doorOpen > 0 ? "#39d98a" : blink ? "#ff3b3b" : "#501010");
-
   // terminal
   R(30, 112, 58, 4, "#2a323c"); R(34, 116, 3, 24, "#1b2129"); R(81, 116, 3, 24, "#1b2129");
   R(38, 76, 42, 34, "#20262e"); R(38, 76, 42, 1, "#39424e");
   R(41, 79, 36, 26, "#031008");
   for (let i = 0; i < 26; i++) R(41 + hash(i + Math.floor(T / 120)) * 35, 79 + hash(i * 3 + Math.floor(T / 120)) * 25, 1, 1, "#1b6b3a");
   if (Math.floor(T / 700) % 5 === 0) R(41, 79 + (T / 20 % 26), 36, 1, "#2a8a50");
-  R(56, 110, 6, 2, "#1b2129");
-  R(78, 100, 2, 20, "#141a20"); R(79, 120, 1, 14, "#141a20");
-
+  // armário
+  R(236, 50, 30, 60, "#1e252d"); R(238, 52, 26, 56, "#161c22"); R(251, 52, 1, 56, "#0a0d10");
+  R(247, 76, 2, 6, "#3b4552"); R(254, 76, 2, 6, "#3b4552");
+  if (S.flags.lockerOpen) { R(238, 52, 12, 56, "#050607"); R(266, 52, 6, 56, "#161c22"); }
   // duto
-  R(248, 22, 44, 24, "#161b21"); R(250, 24, 40, 20, "#07090b");
-  for (let x = 252; x < 290; x += 4) R(x, 24, 2, 20, "#20272f");
-  R(262, 30, 1, 10, "#0a0c0e");
-
-  // corpo do engenheiro
+  R(248, 20, 44, 22, "#161b21"); R(250, 22, 40, 18, "#07090b");
+  for (let x = 252; x < 290; x += 4) R(x, 22, 2, 18, "#20272f");
+  if ((T % 7000) < 1200) { R(262, 28, 2, 1, "#ffd21a"); R(270, 28, 2, 1, "#ffd21a"); }
+  // corpo
   R(226, 150, 70, 5, "#2a0606"); R(234, 148, 50, 2, "#360808");
   R(232, 141, 16, 5, "#2e2922"); R(244, 139, 34, 9, "#3b3a2e"); R(252, 139, 12, 2, "#4a4838");
   R(246, 147, 12, 3, "#2e2922"); R(278, 137, 10, 10, "#3a3f45"); R(280, 140, 6, 3, "#171a1d");
-  R(270, 142, 1, 1, "#5ff0ff");
-
-  crewRow([128, 160, 192], 178);
+  crewRow(124, 178, 20);
 }
 
 function drawCorridor() {
@@ -623,33 +585,53 @@ function drawCorridor() {
   for (let x = 0; x < VX0; x++) { const t = (VX0 - x) / VX0; const top = VY0 - t * VY0, bot = VY1 + t * (H - VY1); R(x, top, 1, bot - top, t > 0.6 ? "#161d25" : t > 0.3 ? "#11171e" : "#0c1116"); }
   for (let x = VX1; x < W; x++) { const t = (x - VX1) / (W - VX1); const top = VY0 - t * VY0, bot = VY1 + t * (H - VY1); R(x, top, 1, bot - top, t > 0.6 ? "#161d25" : t > 0.3 ? "#11171e" : "#0c1116"); }
   R(VX0, VY0, VX1 - VX0, VY1 - VY0, "#0a0d11");
-  // porta do fim
   R(141, 62, 38, 43, "#1b222a"); R(143, 64, 34, 41, "#11161c"); R(159, 64, 2, 41, "#07090b");
   R(170, 80, 3, 3, Math.floor(T / 600) % 2 ? "#39d98a" : "#0f3a20");
-  // costelas e luzes
   [0.12, 0.34, 0.58, 0.86].forEach((d, i) => {
     const l = VX0 - d * VX0, r = VX1 + d * (W - VX1), top = VY0 - d * VY0, bot = VY1 + d * (H - VY1);
     const th = 1 + Math.round(d * 3), c = "#1f2833";
     R(l, top, r - l, th, c); R(l, top, th, bot - top, c); R(r - th, top, th, bot - top, c);
     const lit = flicker(i + 3, 70 + i * 23) && hash(Math.floor(T / 900) + i) > 0.25;
     const lw = 6 + d * 34;
-    R(160 - lw / 2, top + th, lw, 2, lit ? "#dff4ff" : "#1c2530");
-    if (lit) alpha(0.10, () => { R(160 - lw, top + th + 2, lw * 2, bot - top - th - 2, "#bfe6ff"); });
+    R(160 - lw / 2, top + th, lw, 2, lit ? (S.tint ? "#ff9a9a" : "#dff4ff") : "#1c2530");
+    if (lit) alpha(0.10, () => { R(160 - lw, top + th + 2, lw * 2, bot - top - th - 2, S.tint ? "#ff4040" : "#bfe6ff"); });
   });
-  // rastro
   for (let k = 0; k <= 26; k++) { const p = k / 26; const x = 150 + (266 - 150) * Math.pow(p, 1.6) + Math.sin(k) * 2; const y = 178 - (178 - 90) * p; R(x, y, 7 * (1 - p) + 2, 3, "#3d0808"); }
-  // duto na parede direita
   R(250, 66, 34, 28, "#0b0e12"); R(252, 68, 30, 24, "#030405");
   for (let x = 254; x < 282; x += 4) R(x, 68, 2, 24, "#1c232b");
-  const eyes = (T % 5200) < 1800 && Math.floor(T / 140) % 9 !== 0;
-  if (eyes) { R(262, 78, 2, 1, "#ffd21a"); R(270, 78, 2, 1, "#ffd21a"); }
-  // caixas
+  if ((T % 5200) < 1800 && Math.floor(T / 140) % 9 !== 0) { R(262, 78, 2, 1, "#ffd21a"); R(270, 78, 2, 1, "#ffd21a"); }
   R(16, 118, 50, 36, "#3b2f1f"); R(16, 118, 50, 2, "#57452d"); R(16, 134, 50, 2, "#2a2116"); R(38, 118, 2, 36, "#2a2116");
   R(24, 96, 36, 24, "#453625"); R(24, 96, 36, 2, "#5d4a31"); R(40, 96, 2, 24, "#2e2418");
-  R(36, 102, 12, 2, "#c9971b"); R(36, 110, 12, 2, "#c9971b");
-  // névoa
   alpha(0.07, () => { for (let i = 0; i < 3; i++) R(((T / 60 + i * 120) % 440) - 120, 130 + i * 12, 120, 8, "#9fb3c8"); });
-  crewRow([128, 160, 192], 178);
+  if (S.tint) alpha(0.12 + 0.06 * Math.sin(T / 250), () => R(0, 0, W, H, "#600010"));
+  crewRow(160, 178);
+}
+
+function drawSealed() {
+  wallPanels("#0c1013");
+  txt("QUARENTENA", 160, 16, Math.floor(T / 700) % 2 ? "#ff3b3b" : "#6b1010", "center");
+  const shake = T - S.bangT < 180 ? (Math.random() * 2 - 1) | 0 : 0;
+  R(100, 28, 120, 114, "#1c232c");
+  for (let r = 0; r < 6; r++) for (let k = -6; k < 120; k += 8) { const xx = k + r; if (xx >= 0 && xx < 117) R(100 + xx, 28 + r, 4, 1, "#c9971b"); }
+  R(106 + shake, 36, 108, 104, "#2b333d"); R(106 + shake, 36, 108, 2, "#3b4552");
+  R(140 + shake, 50, 40, 26, "#000");
+  // rosto na janela
+  const faceOn = (!S.flags.rhea || S.flags.rhea === "left") && (T % 4200) < 2600;
+  if (faceOn) {
+    const fx = 160 + shake + Math.round(Math.sin(T / 300) * 2);
+    disc(fx, 64, 8, "#a89c8e"); R(fx - 4, 61, 2, 2, "#111"); R(fx + 3, 61, 2, 2, "#111"); R(fx - 2, 68, 5, 1, "#3a0a0a");
+    R(fx - 5, 64, 1, 5, "#7a8a9a");
+  }
+  if (T - S.bangT < 900) { R(143 + shake, 55, 6, 7, "#b8a898"); for (let f = 0; f < 4; f++) R(143 + shake + f * 1.5, 51, 1, 4, "#b8a898"); }
+  R(140 + shake, 50, 40, 1, "#4a5563");
+  R(150 + shake, 96, 20, 3, "#000"); R(148 + shake, 94, 24, 1, "#4a5563");
+  R(110, 138, 100, 3, "#3d0808");
+  [118, 131, 160, 177, 199].forEach((x, i) => R(x, 141, 2, 4 + (i * 5) % 9, "#2e0606"));
+  // corredor à direita
+  R(262, 40, 40, 100, "#040506"); R(262, 40, 40, 2, "#2e3947");
+  R(276, 60, 12, 2, flicker(7, 60) ? "#dff4ff" : "#1c2530");
+  txt("→", 274, 90, "#39d98a");
+  crewRow(150, 178, 20);
 }
 
 function drawMedbay() {
@@ -660,38 +642,61 @@ function drawMedbay() {
   for (let x = 0; x < W; x += 20) R(x, 142, 1, 38, "#101719");
   const lit = flicker(9, 60);
   R(100, 4, 120, 3, "#20292c"); R(102, 7, 116, 2, lit ? "#cfe9ee" : "#2a3638");
-  if (lit) alpha(0.06, () => R(60, 9, 200, 131, "#cfe9ee"));
-  // monitor cardíaco
   R(40, 38, 52, 32, "#1a1f22"); R(43, 41, 46, 26, "#020805");
   for (let x = 0; x < 46; x++) {
     const ph = (x + Math.floor(T / 35)) % 32;
     const y = ph === 10 ? -8 : ph === 11 ? 6 : ph === 12 ? -3 : 0;
     R(43 + x, 54 + y, 1, 1, "#39ff7a");
   }
-  // maca
   R(20, 112, 90, 5, "#6a737c"); R(24, 117, 3, 23, "#4a525a"); R(103, 117, 3, 23, "#4a525a");
   R(22, 106, 86, 6, "#7e878d");
   const b = Math.sin(T / 900) > 0.2 ? 1 : 0;
-  R(26, 98, 80, 10, "#b9c1c4"); R(48, 94 - b, 28, 6, "#b9c1c4"); R(88, 92 - b, 15, 8, "#c9cfd2");
-  R(26, 106, 80, 2, "#8e979b"); R(60, 100, 8, 3, "#6b1d1d"); R(64, 103, 3, 5, "#5a1515");
-  if (Math.floor(T / 3000) % 4 === 3 && (T % 3000) < 200) R(26, 104, 2, 4, "#8a7a6a");
-  // mesa + gravador
+  if (!S.flags.sheetOff) {
+    R(26, 98, 80, 10, "#b9c1c4"); R(48, 94 - b, 28, 6, "#b9c1c4"); R(88, 92 - b, 15, 8, "#c9cfd2");
+    R(26, 106, 80, 2, "#8e979b"); R(60, 100, 8, 3, "#6b1d1d"); R(64, 103, 3, 5, "#5a1515");
+  } else {
+    R(26, 100, 80, 6, "#4a4034"); R(88, 94, 12, 10, "#8a7f72"); R(91, 97, 2, 2, "#000"); R(96, 97, 2, 2, "#000");
+    R(20, 118, 30, 16, "#b9c1c4");
+  }
   R(150, 118, 44, 4, "#3a434a"); R(154, 122, 3, 18, "#2a3238"); R(187, 122, 3, 18, "#2a3238");
   R(162, 108, 20, 10, "#23292e"); R(164, 110, 8, 5, "#101416");
   R(177, 111, 3, 3, Math.floor(T / 450) % 2 ? "#ff3b3b" : "#3a0808");
-  // marcas de mãos
   [[200, 50], [212, 58], [204, 64]].forEach(([x, y]) => { R(x, y + 3, 5, 5, "#4a0c0c"); for (let f = 0; f < 4; f++) R(x + f * 1.4, y - f % 2, 1, 4, "#4a0c0c"); });
-  // armário
   R(234, 56, 54, 86, "#6f7b80"); R(236, 58, 50, 82, "#5b666b"); R(260, 58, 2, 82, "#3e474b");
   R(248, 72, 12, 3, "#b01e1e"); R(252, 68, 4, 11, "#b01e1e");
   R(286, 90, 4, 30, "#3e474b");
-  crewRow([128, 160, 192], 178);
+  R(296, 40, 22, 100, "#050708"); txt("→", 300, 90, "#39d98a");
+  crewRow(160, 178);
+}
+
+function drawAirlock() {
+  R(0, 0, W, H, "#0b0f13");
+  for (let x = 20; x < W; x += 30) { R(x, 0, 4, 140, "#161d25"); R(x + 1, 0, 1, 140, "#212a35"); }
+  R(0, 140, W, 40, "#0a0c0f"); R(0, 140, W, 2, "#232b35");
+  for (let y = 146; y < H; y += 6) R(0, y, W, 1, "#101318");
+  // porta de trás (onde está a horda)
+  const sh = T - S.bangT < 200 ? (Math.random() * 3 - 1.5) | 0 : 0;
+  R(8, 32, 66, 110, "#1c232c"); R(12 + sh, 36, 58, 104, "#2b333d");
+  disc(41 + sh, 70, 14, "#000"); disc(41 + sh, 70, 12, "#030304");
+  for (let i = 0; i < 7; i++) { if (hash(i + Math.floor(T / 400)) > 0.45) { const ex = 32 + hash(i) * 18 + sh, ey = 62 + hash(i + 5) * 16; R(ex, ey, 1, 1, "#ffd21a"); R(ex + 3, ey, 1, 1, "#ffd21a"); } }
+  const a = (Math.sin(T / 150) + 1) / 2;
+  R(36, 22, 10, 6, a > 0.5 ? "#ff3b3b" : "#4a0808");
+  alpha(0.12 * a, () => disc(41, 25, 30, "#ff2020"));
+  // manivela
+  const ang = T / 900;
+  disc(90, 92, 10, "#3a434d"); disc(90, 92, 7, "#0b0f13");
+  for (let k = 0; k < 4; k++) { const aa = ang + k * Math.PI / 2; R(90 + Math.cos(aa) * 7, 92 + Math.sin(aa) * 7, 2, 2, "#c9971b"); }
+  R(89, 91, 3, 3, "#c9971b");
+  // saída
+  R(262, 40, 48, 100, "#040506"); R(262, 40, 48, 2, "#2e3947");
+  R(282, 56, 8, 3, "#39d98a"); txt("→", 278, 90, "#39d98a");
+  txt("ECLUSA 4", 170, 20, "#4b5663", "center");
+  crewRow(178, 178);
 }
 
 function drawVoid() {
   R(0, 0, W, H, "#010204");
   stars(0, 0, W, H, T / 300);
-  // planeta partido
   const cx = 228, cy = 66, r = 38;
   for (let dy = -r; dy <= r; dy++) {
     const w = Math.floor(Math.sqrt(r * r - dy * dy));
@@ -701,20 +706,13 @@ function drawVoid() {
     if (Math.abs(dy) < r - 4) R(cx - 4 + Math.sin(dy / 3) * 2, cy + dy, 7, 1, Math.sin(T / 300 + dy) > 0 ? "#ff4a1a" : "#c02a10");
   }
   alpha(0.12 + 0.04 * Math.sin(T / 500), () => disc(cx, cy, 50, "#ff3010"));
-  for (let i = 0; i < 6; i++) { const a = T / 4000 + i; R(cx + Math.cos(a) * (46 + i * 3), cy + Math.sin(a) * 10 + i * 3, 2, 1, "#8a5a44"); }
-  // estrutura / janela
   R(0, 0, W, 5, "#1b2027"); R(0, 5, W, 1, "#2c333d");
   R(96, 0, 7, 120, "#161b21"); R(214, 0, 7, 120, "#161b21");
   for (let y = 12; y < 120; y += 14) { R(98, y, 3, 2, "#2a313b"); R(216, y, 3, 2, "#2a313b"); }
-  // plataformas
   R(0, 130, 110, 50, "#11161c"); R(0, 130, 110, 2, "#2b3440"); for (let x = 0; x < 110; x += 10) R(x, 132, 1, 48, "#0b0f13");
   R(210, 130, 110, 50, "#11161c"); R(210, 130, 110, 2, "#2b3440"); for (let x = 210; x < W; x += 10) R(x, 132, 1, 48, "#0b0f13");
-  [[108, 130], [106, 136], [109, 143], [104, 150], [108, 160]].forEach(([x, y]) => R(x, y, 4, 5, "#11161c"));
-  [[210, 132], [212, 141], [209, 152]].forEach(([x, y]) => R(x - 3, y, 4, 6, "#11161c"));
-  // cabo
-  for (let x = 100; x <= 220; x++) { const p = (x - 100) / 120; R(x, 124 + Math.sin(Math.PI * p) * 7 + Math.sin(T / 700 + p * 6) * 1, 1, 1, "#9aa3ad"); }
+  for (let x = 100; x <= 220; x++) { const p = (x - 100) / 120; R(x, 124 + Math.sin(Math.PI * p) * 7 + Math.sin(T / 700 + p * 6), 1, 1, "#9aa3ad"); }
   R(98, 120, 4, 10, "#3a434d"); R(218, 120, 4, 10, "#3a434d");
-  // destroços flutuando
   for (let i = 0; i < 7; i++) {
     const x = (hash(i + 40) * W + T / (60 + i * 20)) % (W + 20) - 10;
     const y = 30 + hash(i + 50) * 120 + Math.sin(T / 900 + i) * 4;
@@ -722,11 +720,37 @@ function drawVoid() {
     R(x, y, s + 1, s, i === 3 ? "#5a3a2a" : "#3a434d");
   }
   if (Math.floor(T / 9000) % 2 === 1) { const x = ((T % 9000) / 9000) * 360 - 20; R(x, 70, 6, 3, "#4a4034"); R(x + 6, 70, 3, 3, "#3a3f45"); }
-  // painel de gravidade
+  if (S.san < 45 && (T % 6000) < 700) { R(150, 40, 6, 14, "#8a8078"); disc(153, 36, 3, "#a89c8e"); R(156, 38, 4, 1, "#8a8078"); }
   R(280, 94, 26, 36, "#1d242c"); R(283, 97, 20, 12, "#0a0303");
-  txt("G:0", 284, 100, Math.floor(T / 400) % 2 ? "#ff3b3b" : "#5a1010", "left", 8);
+  txt("G:0", 284, 100, Math.floor(T / 400) % 2 ? "#ff3b3b" : "#5a1010");
   R(285, 114, 4, 4, "#c9971b"); R(293, 114, 4, 4, "#39d98a");
-  crewRow([30, 56, 82], 170, 1);
+  crewRow(58, 172, 12, 1);
+}
+
+function drawMonolith() {
+  R(0, 0, W, H, "#07080a");
+  for (let x = 0; x < W; x += 24) R(x, 0, 1, 140, "#101318");
+  R(0, 140, W, 40, "#08090b"); R(0, 140, W, 2, "#1a1d22");
+  // caixas
+  [[10, 100, 40, 40], [50, 110, 30, 30], [20, 72, 30, 28], [250, 96, 50, 44], [270, 66, 36, 30]].forEach(([x, y, w, h]) => { R(x, y, w, h, "#2a2218"); R(x, y, w, 2, "#3a3022"); R(x + w / 2, y, 1, h, "#1a150f"); });
+  // correntes
+  for (let y = 0; y < 40; y += 3) { R(120 + y * 0.4, y, 2, 2, "#3a3f45"); R(198 - y * 0.4, y, 2, 2, "#3a3f45"); }
+  // monólito
+  const pulse = (Math.sin(T / 500) + 1) / 2;
+  alpha(0.10 + 0.10 * pulse, () => disc(160, 80, 70, "#ff1a1a"));
+  for (let y = 22; y < 136; y++) {
+    const w = 14 + Math.floor((y - 22) * 0.12) + (y > 30 && y < 34 ? -2 : 0);
+    R(160 - w, y, w * 2, 1, y % 9 === 0 ? "#3a0606" : "#4a0808");
+  }
+  for (let k = 0; k < 9; k++) { const gy = 30 + k * 11; const gx = 152 + (k % 3) * 5; alpha(0.4 + 0.6 * pulse, () => { R(gx, gy, 6, 1, "#ff3b3b"); R(gx + 2, gy, 1, 5, "#ff3b3b"); }); }
+  if (S.flags.mono === "broken") { for (let y = 30; y < 130; y += 2) R(158 + Math.sin(y / 5) * 3, y, 2, 2, "#000"); }
+  // ajoelhados
+  [[110, 140], [128, 142], [192, 142], [210, 140], [100, 146]].forEach(([x, y], i) => {
+    R(x - 4, y - 10, 8, 8, "#141414"); disc(x, y - 14, 3, "#161616"); R(x - 5, y - 3, 10, 3, "#141414");
+    if (i === 2 && (T % 5000) < 300) R(x - 1, y - 15, 2, 1, "#ffd21a");
+  });
+  R(8, 60, 32, 80, "#020304"); R(8, 60, 32, 2, "#2e3947"); txt("→", 16, 94, "#39d98a");
+  crewRow(168, 178);
 }
 
 function drawHangar() {
@@ -737,80 +761,126 @@ function drawHangar() {
   R(58, 80, 204, 6, "#1d252e");
   for (let k = 0; k < 204; k += 10) R(58 + k, 86, 5, 4, "#c9971b");
   R(0, 118, W, 62, "#0d1014"); R(0, 118, W, 2, "#232b35");
-  for (let i = -4; i <= 4; i++) { for (let y = 120; y < H; y += 2) { const p = (y - 120) / 60; R(160 + i * (14 + p * 40), y, 1, 1, "#1b222a"); } }
-  R(100, 150, 120, 1, "#8a6a14"); R(110, 134, 100, 1, "#5a4510");
-  // sirenes
+  for (let i = -4; i <= 4; i++) for (let y = 120; y < H; y += 2) { const p = (y - 120) / 60; R(160 + i * (14 + p * 40), y, 1, 1, "#1b222a"); }
   [[48, 14], [272, 14]].forEach(([x, y], i) => {
     const a = (Math.sin(T / 180 + i * 3) + 1) / 2;
     R(x - 4, y, 8, 5, a > 0.5 ? "#ffb347" : "#5a3a10");
     alpha(0.08 * a, () => disc(x, y + 3, 26, "#ffb347"));
   });
-  // console
   R(12, 98, 40, 34, "#1d252e"); R(16, 102, 32, 14, "#021a0c");
   for (let i = 0; i < 4; i++) R(18, 104 + i * 3, 6 + hash(i + Math.floor(T / 300)) * 22, 1, "#2ecf6a");
-  R(30, 84, 2, 14, "#3a434d"); R(26, 82, 10, 2, "#3a434d");
-  R(34, 80, 2, 2, Math.floor(T / 300) % 2 ? "#ff3b3b" : "#3a0808");
-  // nave de fuga
   R(206, 90, 96, 30, "#7d858d"); R(206, 90, 96, 3, "#a9b1b8"); R(206, 114, 96, 6, "#4f565d");
-  R(296, 94, 10, 20, "#6d757d"); R(284, 96, 12, 7, "#8ef4ff"); R(286, 97, 4, 2, "#e6ffff");
+  R(296, 94, 10, 20, "#6d757d"); R(284, 96, 12, 7, "#8ef4ff");
   R(198, 96, 8, 18, "#3b4046"); R(194, 100, 4, 10, flicker(22, 50) ? "#4fc3ff" : "#1a4a6a");
   for (let i = 0; i < 4; i++) R(222 + i * 14, 98, 6, 4, "#2a3036");
   txt("S-1", 226, 106, "#2f363d");
   for (let k = 0; k < 20; k++) R(232 + k, 120 + k, 16, 1, "#5d656d");
-  R(212, 121, 2, 2, Math.floor(T / 400) % 2 ? "#39d98a" : "#0f3a20"); R(296, 121, 2, 2, Math.floor(T / 400) % 2 ? "#0f3a20" : "#39d98a");
-  // a criatura
-  const sway = Math.round(Math.sin(T / 800) * 1.2);
-  const tw = (T % 3400) < 140 ? (hash(Math.floor(T / 40)) * 4 - 2) | 0 : 0;
-  const cx = 118 + sway, k = "#020203";
-  R(cx - 1 + tw, 50, 8, 9, k); R(cx - 3 + tw, 54, 3, 2, k);
-  R(cx + 1, 59, 4, 4, k);
-  R(cx - 2, 62, 11, 24, k); R(cx - 4, 64, 3, 3, k); R(cx + 8, 63, 3, 3, k);
-  R(cx - 7, 64, 3, 18, k); R(cx - 11, 80, 3, 22, k); R(cx - 15, 100, 7, 2, k); R(cx - 17, 101, 3, 1, k);
-  R(cx + 10, 62, 3, 16, k); R(cx + 13, 76, 3, 24, k); R(cx + 13, 98, 8, 2, k);
-  R(cx - 1, 86, 4, 16, k); R(cx - 4, 100, 4, 18, k); R(cx + 5, 86, 4, 14, k); R(cx + 8, 98, 4, 20, k);
-  const pul = Math.floor(T / 350) % 3;
-  R(cx + 1, 68, 2, 2, pul ? "#ffb000" : "#6a4400"); R(cx + 5, 76, 2, 1, pul === 2 ? "#ffb000" : "#6a4400"); R(cx - 10, 86, 1, 2, "#ffb000");
-  alpha(0.25, () => { R(cx - 2, 118, 16, 2, "#000"); });
-  crewRow([146, 172, 198], 178);
+  if (!S.flags.beastGone) {
+    const sway = Math.round(Math.sin(T / 800) * 1.2);
+    const tw = (T % 3400) < 140 ? (hash(Math.floor(T / 40)) * 4 - 2) | 0 : 0;
+    const cx = 118 + sway, k = "#020203";
+    R(cx - 1 + tw, 50, 8, 9, k); R(cx - 3 + tw, 54, 3, 2, k); R(cx + 1, 59, 4, 4, k);
+    R(cx - 2, 62, 11, 24, k); R(cx - 4, 64, 3, 3, k); R(cx + 8, 63, 3, 3, k);
+    R(cx - 7, 64, 3, 18, k); R(cx - 11, 80, 3, 22, k); R(cx - 15, 100, 7, 2, k);
+    R(cx + 10, 62, 3, 16, k); R(cx + 13, 76, 3, 24, k); R(cx + 13, 98, 8, 2, k);
+    R(cx - 1, 86, 4, 16, k); R(cx - 4, 100, 4, 18, k); R(cx + 5, 86, 4, 14, k); R(cx + 8, 98, 4, 20, k);
+    if (S.flags.rhea === "left" || S.flags.rhea === "lost") { R(cx - 1, 66, 9, 12, "#3b3a2e"); R(cx + 2, 68, 3, 2, "#c9cfd2"); }
+    const pul = Math.floor(T / 350) % 3;
+    R(cx + 1, 68 + (S.flags.rhea === "left" ? 12 : 0), 2, 2, pul ? "#ffb000" : "#6a4400"); R(cx - 10, 86, 1, 2, "#ffb000");
+  }
+  crewRow(170, 178);
 }
+
+function drawLaunch() {
+  R(0, 0, W, H, "#07090c");
+  R(20, 6, 220, 44, "#000"); ctx.save(); ctx.beginPath(); ctx.rect(20, 6, 220, 44); ctx.clip(); stars(20, 6, 220, 44, T / 400); ctx.restore();
+  R(20, 6, 220, 2, "#2b3440"); R(128, 6, 4, 44, "#1b2129");
+  R(0, 50, W, 130, "#151b22"); R(0, 50, W, 2, "#2b3440");
+  R(58, 58, 204, 42, "#000"); R(60, 60, 200, 38, "#031a0b");
+  txt("IGNIÇÃO", 68, 64, "#39ff7a");
+  for (let i = 0; i < 6; i++) {
+    const v = S.seqIn[i];
+    R(68 + i * 30, 80, 24, 12, v === undefined ? "#0a2a14" : CHEX[v]);
+    if (v === undefined) R(68 + i * 30, 91, 24, 1, "#1b5a2e");
+  }
+  if (S.seqMsg) { R(60, 60, 200, 38, S.seqMsg === "ok" ? "#0b4a22" : "#3a0808"); txt(S.seqMsg === "ok" ? "IGNIÇÃO OK" : "INVÁLIDA", 160, 74, S.seqMsg === "ok" ? "#6dff8a" : "#ff3b3b", "center"); }
+  if (S.seqShowing) txt("OBSERVEM", 250, 64, Math.floor(T / 200) % 2 ? "#ffb347" : "#553a10", "right");
+  for (const b of LBTNS) {
+    const lit = S.lit === b.c && T < S.litUntil;
+    R(b.x, b.y + 3, b.w, b.h, "#05070a");
+    R(b.x, b.y + (lit ? 3 : 0), b.w, b.h, lit ? CLIT[b.c] : CHEX[b.c]);
+    R(b.x, b.y + (lit ? 3 : 0), b.w, 2, "rgba(255,255,255,.35)");
+    if (lit) alpha(0.25, () => disc(b.x + b.w / 2, b.y + b.h / 2, 30, CLIT[b.c]));
+    txt(String(b.c + 1), b.x + b.w / 2 + 1, b.y + 14 + (lit ? 3 : 0), "#000", "center");
+  }
+  // escotilha com a criatura
+  const sh = T - S.bangT < 200 ? (Math.random() * 3 - 1.5) | 0 : 0;
+  R(270, 8, 46, 92, "#1b2129"); R(272 + sh, 10, 42, 88, "#2b333d");
+  disc(293 + sh, 38, 15, "#000");
+  if (S.threat > 0 || (T % 3000) < 900) {
+    const r = 4 + S.threat * 3;
+    disc(293 + sh, 40, r, "#0d0d0f");
+    R(290 + sh - S.threat, 38, 2, 1, "#ffd21a"); R(295 + sh + S.threat, 38, 2, 1, "#ffd21a");
+  }
+  for (let k = 0; k < S.threat; k++) { R(284 + k * 6 + sh, 26 + k * 4, 1, 10, "#8a96a4"); R(285 + k * 6 + sh, 34 + k * 4, 6, 1, "#8a96a4"); }
+  txt("PERIGO", 293, 62, S.threat >= 2 ? "#ff3b3b" : "#4b5663", "center");
+  for (let k = 0; k < 3; k++) R(280 + k * 10, 76, 8, 6, k < S.threat ? "#ff3b3b" : "#2a1010");
+}
+const LBTNS = [0, 1, 2, 3].map(c => ({ c, x: 42 + c * 54, y: 112, w: 46, h: 38 }));
 
 function drawEnding() {
   R(0, 0, W, H, "#010204");
   const e = (T - S.endT0) / 1000;
-  stars(0, 0, W, H, -T / 40);
-  const k = Math.max(0.25, 1 - e / 18);
-  ctx.save(); ctx.translate(90, 90); ctx.scale(k, k);
+  if (S.endKind === "boom") {
+    stars(0, 0, W, H, 0);
+    const k = Math.min(1, e / 1.5);
+    alpha(Math.max(0, 1 - e / 4), () => R(0, 0, W, H, "#ffffff"));
+    for (let i = 0; i < 40; i++) { const a = hash(i) * Math.PI * 2, d = e * (20 + hash(i + 9) * 60); R(160 + Math.cos(a) * d, 90 + Math.sin(a) * d * 0.7, 2, 2, i % 3 ? "#5a3a2a" : "#ff6a1a"); }
+    if (k < 1) disc(160, 90, Math.floor(k * 80), "#ffe0a0");
+    return;
+  }
+  stars(0, 0, W, H, S.endKind === "escape" ? -T / 40 : T / 400);
+  const k = S.endKind === "escape" ? Math.max(0.25, 1 - e / 18) : 1;
+  ctx.save(); ctx.translate(S.endKind === "escape" ? 90 : 160, 90); ctx.scale(k, k);
   R(-90, -14, 150, 28, "#161b21"); R(-110, -6, 30, 12, "#11151a"); R(60, -20, 26, 40, "#1b2027");
   R(-60, -28, 30, 14, "#161b21"); R(-20, 14, 50, 12, "#11151a");
   for (let i = 0; i < 8; i++) R(-80 + i * 17, -4, 2, 2, Math.floor(T / 300 + i) % 3 ? "#3a0808" : "#ff3b3b");
   ctx.restore();
-  const sx = 170 + Math.min(e, 10) * 8, sy = 96 + Math.sin(T / 600) * 2;
-  R(sx, sy, 22, 7, "#8a929a"); R(sx + 18, sy + 1, 6, 5, "#6d757d"); R(sx + 17, sy + 2, 3, 2, "#8ef4ff");
-  R(sx - 4 - (Math.floor(T / 60) % 3), sy + 2, 4 + (Math.floor(T / 60) % 3), 3, "#4fc3ff");
-  if (e > 7 && Math.floor(T / 300) % 2) R(sx + 8, sy - 3, 2, 2, "#ff3b3b");
+  if (S.endKind === "escape") {
+    const sx = 170 + Math.min(e, 10) * 8, sy = 96 + Math.sin(T / 600) * 2;
+    R(sx, sy, 22, 7, "#8a929a"); R(sx + 18, sy + 1, 6, 5, "#6d757d"); R(sx + 17, sy + 2, 3, 2, "#8ef4ff");
+    R(sx - 4 - (Math.floor(T / 60) % 3), sy + 2, 4 + (Math.floor(T / 60) % 3), 3, "#4fc3ff");
+    if (e > 7 && Math.floor(T / 300) % 2) R(sx + 8, sy - 3, 2, 2, "#ff3b3b");
+  }
 }
 
 function drawTitleBg() {
   R(0, 0, W, H, "#010204");
   stars(0, 0, W, H, T / 120);
-  alpha(0.9, () => { for (let dy = -60; dy <= 60; dy++) { const w = Math.floor(Math.sqrt(3600 - dy * dy)); R(270 - w, 150 + dy, w * 2, 1, dy < 0 ? "#3a2219" : "#2a1812"); } });
+  for (let dy = -60; dy <= 60; dy++) { const w = Math.floor(Math.sqrt(3600 - dy * dy)); R(270 - w, 150 + dy, w * 2, 1, dy < 0 ? "#3a2219" : "#2a1812"); }
   R(262, 90, 8, 60, "#b02010");
   const x = 40 + Math.sin(T / 3000) * 4;
   R(x, 60, 150, 22, "#12161b"); R(x - 20, 66, 20, 10, "#0e1116"); R(x + 150, 56, 22, 30, "#161b21"); R(x + 30, 50, 30, 10, "#12161b"); R(x + 60, 82, 40, 8, "#0e1116");
   for (let i = 0; i < 9; i++) R(x + 10 + i * 15, 70, 2, 1, Math.floor(T / 400 + i) % 4 ? "#2a0606" : "#ff3b3b");
 }
 
+const KEYS = [];
+["1","2","3","4","5","6","7","8","9","C","0","OK"].forEach((k, i) => {
+  const c = i % 3, r = (i / 3) | 0;
+  KEYS.push({ k, x: 121 + c * 27, y: 56 + r * 28, w: 24, h: 22 });
+});
 function drawKeypad() {
   R(0, 0, W, H, "#0b0f14");
   for (let x = 0; x < W; x += 32) R(x, 0, 1, H, "#121922");
+  const sh = T - S.bangT < 200 ? (Math.random() * 3 - 1.5) | 0 : 0;
+  ctx.save(); ctx.translate(sh, 0);
   R(108, 8, 104, 166, "#232b35"); R(110, 10, 100, 162, "#1a2029"); R(110, 10, 100, 1, "#3a4655");
   for (const [sx, sy] of [[113, 13], [204, 13], [113, 166], [204, 166]]) R(sx, sy, 3, 3, "#39424e");
   R(118, 18, 84, 30, "#000"); R(120, 20, 80, 26, S.screenMsg === "ok" ? "#0b4a22" : S.screenMsg === "err" ? "#3a0808" : "#031a0b");
-  if (S.screenMsg === "ok") txt("ACESSO OK", 160, 29, "#6dff8a", "center");
-  else if (S.screenMsg === "err") txt("ERRO", 160, 25, "#ff3b3b", "center", 16);
+  if (S.screenMsg === "ok") txt("LIBERADO", 160, 29, "#6dff8a", "center");
+  else if (S.screenMsg === "err") txt("NEGADO", 160, 29, "#ff3b3b", "center");
   else {
-    const shown = (S.entry + "____").slice(0, 4);
-    txt(shown, 160, 25, "#39ff7a", "center", 16);
+    txt((S.entry + "____").slice(0, 4), 160, 25, "#39ff7a", "center", 16);
     if (Math.floor(T / 400) % 2 && S.entry.length < 4) R(128 + S.entry.length * 16, 42, 14, 2, "#39ff7a");
   }
   for (const k of KEYS) {
@@ -821,401 +891,1284 @@ function drawKeypad() {
     R(k.x, k.y + (down ? 2 : 0), k.w, 1, down ? "#bff" : "#5a6676");
     txt(k.k, k.x + k.w / 2 + 1, k.y + 8 + (down ? 2 : 0), down ? "#001" : "#e0e8f0", "center");
   }
-  // histórico
-  txt("TENTATIVAS", 8, 12, "#7d8fa3");
-  S.attempts.forEach((a, i) => {
-    a.guess.forEach((d, j) => {
-      const col = a.fb[j] === 2 ? "#2e9e4f" : a.fb[j] === 1 ? "#b8961e" : "#3a3f45";
-      R(10 + j * 20, 26 + i * 18, 16, 15, col);
-      txt(String(d), 18 + j * 20 + 1, 30 + i * 18, "#fff", "center");
-    });
-  });
-  // legenda
-  txt("LEGENDA", 222, 12, "#7d8fa3");
-  [["#2e9e4f", "CERTO"], ["#b8961e", "OUTRO"], ["#b8961e", "LUGAR"], ["#3a3f45", "NÃO"]].forEach(([c, s], i) => {
-    if (i !== 2) R(222, 28 + i * 16, 8, 8, c);
-    txt(s, 234, 28 + i * 16 - (i === 2 ? 6 : 0), "#aab7c4");
-  });
-  txt("O2 -3", 222, 96, "#7d8fa3"); txt("POR ERRO", 222, 108, "#7d8fa3");
-  txt((8 - S.attempts.length) + " RESTAM", 222, 128, "#ffb347");
-  // mão enluvada
+  ctx.restore();
+  txt("TENTADOS", 10, 12, "#7d8fa3");
+  S.tried.slice(-9).forEach((c, i) => txt(c, 14, 28 + i * 15, "#5a6676"));
+  txt("NEGADOS", 222, 12, "#7d8fa3");
+  txt(String(S.wrong), 222, 28, S.wrong ? "#ff3b3b" : "#5a6676", "left", 16);
+  txt("-1 MIN", 222, 56, "#7d8fa3"); txt("POR ERRO", 222, 68, "#7d8fa3");
   const h = S.hand;
   h.x += (h.tx - h.x) * 0.25; h.y += (h.ty - h.y) * 0.25;
   const hx = Math.round(h.x), hy = Math.round(h.y);
+  const who = S.keyActor || S.crew[0];
   R(hx - 2, hy, 5, 13, "#3b3326"); R(hx - 2, hy, 5, 2, "#56493a");
   R(hx - 9, hy + 11, 19, 15, "#3b3326"); R(hx - 9, hy + 11, 19, 2, "#4f4332");
   R(hx - 9, hy + 13, 4, 7, "#2c261e"); R(hx + 5, hy + 13, 5, 6, "#2c261e");
-  R(hx - 10, hy + 26, 21, 4, CREW[0]);
+  R(hx - 10, hy + 26, 21, 4, who.color);
   R(hx - 9, hy + 30, 19, 200, "#4a4034"); R(hx - 9, hy + 30, 4, 200, "#3a3228");
 }
 
-const KEYS = [];
-["1","2","3","4","5","6","7","8","9","C","0","OK"].forEach((k, i) => {
-  const c = i % 3, r = (i / 3) | 0;
-  KEYS.push({ k, x: 121 + c * 27, y: 56 + r * 28, w: 24, h: 22 });
-});
+function drawScare() {
+  const j = () => (Math.random() * 6 - 3) | 0;
+  R(0, 0, W, H, "#000");
+  const x = 160 + j(), y = 86 + j();
+  disc(x, y, 58, "#8f887c"); disc(x, y + 4, 52, "#a89f90");
+  disc(x - 22, y - 12, 12, "#000"); disc(x + 22, y - 12, 12, "#000");
+  R(x - 23, y - 13, 2, 2, "#ffd21a"); R(x + 21, y - 13, 2, 2, "#ffd21a");
+  R(x - 32, y + 14, 64, 40, "#1a0000");
+  for (let k = -30; k < 30; k += 6) { R(x + k, y + 14, 3, 7, "#e8e0d0"); R(x + k + 3, y + 47, 3, 7, "#e8e0d0"); }
+  for (let k = 0; k < 6; k++) R(x - 50 + k * 18, y - 40 + (k % 3) * 8, 1, 20, "#5a3a3a");
+  alpha(0.3, () => R(0, 0, W, H, "#ff0000"));
+}
 
-const VIEWS = { title: drawTitleBg, cell: drawCell, corridor: drawCorridor, medbay: drawMedbay, void: drawVoid, hangar: drawHangar, keypad: drawKeypad, ending: drawEnding };
+const VIEWS = { title: drawTitleBg, cell: drawCell, corridor: drawCorridor, sealed: drawSealed, medbay: drawMedbay, airlock: drawAirlock, void: drawVoid, monolith: drawMonolith, hangar: drawHangar, launch: drawLaunch, keypad: drawKeypad, ending: drawEnding };
+const DARK = {
+  cell:     { a: 0.84, lights: () => [{ x: 160, y: 20, r: 60 * (flicker(1, 120) && Math.sin(T / 300) > -0.3 ? 1 : 0.2) }, { x: 59, y: 92, r: 22 }, { x: 216, y: 84, r: 12 }] },
+  corridor: { a: 0.72, lights: () => [{ x: 160, y: 60, r: 40 }, { x: 160, y: 84, r: 30 }] },
+  sealed:   { a: 0.78, lights: () => [{ x: 160, y: 62, r: 26 }, { x: 160, y: 20, r: 30 }] },
+  medbay:   { a: 0.76, lights: () => [{ x: 160, y: 10, r: flicker(9, 60) ? 70 : 10 }, { x: 66, y: 54, r: 26 }, { x: 178, y: 112, r: 10 }] },
+  airlock:  { a: 0.7,  lights: () => [{ x: 41, y: 25, r: 50 * ((Math.sin(T / 150) + 1) / 2) }, { x: 286, y: 70, r: 30 }] },
+  void:     { a: 0.35, lights: () => [{ x: 228, y: 66, r: 70 }] },
+  monolith: { a: 0.8,  lights: () => [{ x: 160, y: 80, r: 60 + 20 * Math.sin(T / 500) }] },
+  hangar:   { a: 0.6,  lights: () => [{ x: 48, y: 17, r: 40 }, { x: 272, y: 17, r: 40 }, { x: 250, y: 104, r: 50 }, { x: 160, y: 50, r: 70 }] },
+};
+function darkness() {
+  const d = DARK[S.view]; if (!d) return;
+  mctx.globalCompositeOperation = "source-over";
+  mctx.clearRect(0, 0, W, H);
+  mctx.fillStyle = `rgba(0,0,0,${d.a})`; mctx.fillRect(0, 0, W, H);
+  mctx.globalCompositeOperation = "destination-out";
+  const lanterna = S.items.includes("lanterna");
+  const m = S.mouse || { x: 160, y: 120 };
+  const dead = S.san < 50 && hash(Math.floor(T / 120)) < 0.08;
+  const L = [...d.lights(), { x: m.x, y: m.y, r: dead ? 0 : (lanterna ? 64 : 44) + Math.sin(T / 90) * 1.5 }, { x: 160, y: 176, r: 70 }];
+  for (const l of L) {
+    if (l.r <= 1) continue;
+    const g = mctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
+    g.addColorStop(0, "rgba(0,0,0,1)"); g.addColorStop(0.55, "rgba(0,0,0,.85)"); g.addColorStop(1, "rgba(0,0,0,0)");
+    mctx.fillStyle = g; mctx.beginPath(); mctx.arc(l.x, l.y, l.r, 0, Math.PI * 2); mctx.fill();
+  }
+  ctx.drawImage(mask, 0, 0);
+}
 
 /* ---------- Dado ---------- */
 const PIPS = { 1: [[1,1]], 2: [[0,0],[2,2]], 3: [[0,0],[1,1],[2,2]], 4: [[0,0],[2,0],[0,2],[2,2]], 5: [[0,0],[2,0],[1,1],[0,2],[2,2]], 6: [[0,0],[2,0],[0,1],[2,1],[0,2],[2,2]] };
 function drawDie() {
   const d = S.dice; if (!d) return;
-  alpha(0.6, () => R(0, 0, W, H, "#000"));
+  alpha(0.65, () => R(0, 0, W, H, "#000"));
   let x = 142, y = 58;
-  if (d.rolling) { const e = Math.min(1, (T - d.t0) / 1100); y -= Math.abs(Math.sin(e * Math.PI * 3)) * 30 * (1 - e); x += Math.sin(T / 25) * 4 * (1 - e); }
+  if (d.rolling) { const e = Math.min(1, (T - d.t0) / 1300); y -= Math.abs(Math.sin(e * Math.PI * 3)) * 30 * (1 - e); x += Math.sin(T / 25) * 4 * (1 - e); }
   R(x - 2, y - 2, 40, 40, "#000"); R(x, y, 36, 36, "#e9e7dc"); R(x, y + 32, 36, 4, "#b9b6a8"); R(x + 32, y, 4, 36, "#cac7ba"); R(x, y, 36, 1, "#fff");
   for (const [gx, gy] of PIPS[d.face]) R(x + 5 + gx * 10, y + 5 + gy * 10, 6, 6, d.face === 1 ? "#c01010" : "#141414");
   if (!d.rolling) {
     const col = ["#ff3b3b", "#ff9a5c", "#ffb347", "#d9e4ec", "#6dff8a", "#ffe066"][d.final - 1];
-    txt(d.bonus ? `${d.raw} +${d.bonus} = ${d.final}` : `${d.final}`, 160, 102, "#fff", "center");
+    txt(d.mod ? `${d.raw} ${d.mod > 0 ? "+" : "-"} ${Math.abs(d.mod)} = ${d.final}` : `${d.final}`, 160, 102, "#fff", "center");
     txt(RANK[d.final - 1], 160, 116, col, "center");
     if (d.final === 6) for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2 + T / 500; R(160 + Math.cos(a) * 34, 76 + Math.sin(a) * 30, 2, 2, "#ffe066"); }
   } else txt("ROLANDO...", 160, 106, "#7d8fa3", "center");
 }
 
 /* ---------- Laço principal ---------- */
-let vignette = null;
+let vignette = null, heartAt = 0;
 function frame(now) {
-  T = now;
+  const dt = Math.min(250, now - (lastT || now)); lastT = now; T = now;
+  tickTimer(dt);
   ctx.save();
   if (S.shake > 0.3) { ctx.translate((Math.random() - 0.5) * S.shake, (Math.random() - 0.5) * S.shake); S.shake *= 0.9; }
   (VIEWS[S.view] || drawCell)();
-  // destaque de hotspots
-  if (S.mode === "choice" && S.view !== "keypad") {
-    const sc = SCENES[S.scene];
-    sc.options.forEach((o, i) => { if (i === S.sel && o.hot) brackets(o.hot, Math.floor(T / 250) % 2 ? "#ffb347" : "#7a5010"); });
+  darkness();
+  if (S.mode === "choice" && S.opts) {
+    S.opts.forEach((o, i) => {
+      if (!o.hot || o.disabled) return;
+      if (i === S.sel) brackets(o.hot, Math.floor(T / 250) % 2 ? "#ffb347" : "#7a5010");
+      else brackets(o.hot, "#3a2a10");
+    });
     if (S.hover && S.hover.opt === undefined) brackets(S.hover, "#5ff0ff");
   }
-  // sanidade baixa: glitch
-  if (S.san < 40 && S.mode !== "title" && Math.random() < 0.04) {
+  if (S.san < 45 && S.mode !== "title" && Math.random() < 0.05) {
     const y = Math.random() * H | 0, h = 2 + Math.random() * 10 | 0;
-    ctx.drawImage(cv, 0, y, W, h, (Math.random() - 0.5) * 12, y, W, h);
+    ctx.drawImage(cv, 0, y, W, h, (Math.random() - 0.5) * 14, y, W, h);
     alpha(0.15, () => R(0, y, W, h, "#ff0040"));
   }
-  if (!vignette) { vignette = ctx.createRadialGradient(160, 90, 60, 160, 90, 200); vignette.addColorStop(0, "rgba(0,0,0,0)"); vignette.addColorStop(1, "rgba(0,0,0,.7)"); }
+  if (!vignette) { vignette = ctx.createRadialGradient(160, 90, 60, 160, 90, 200); vignette.addColorStop(0, "rgba(0,0,0,0)"); vignette.addColorStop(1, "rgba(0,0,0,.75)"); }
   ctx.fillStyle = vignette; ctx.fillRect(0, 0, W, H);
   drawDie();
-  // rótulo (point and click)
-  const lab = T < S.labelUntil ? S.label : (S.hover && S.view !== "keypad" && (S.mode === "choice") ? S.hover.label : "");
-  if (lab) { alpha(0.8, () => R(0, H - 14, W, 14, "#000")); txt(lab, 160, H - 11, "#ffb347", "center"); }
+  const lab2 = T < S.labelUntil ? S.label : (S.hover && S.mode === "choice" ? S.hover.label : "");
+  if (lab2) { alpha(0.85, () => R(0, H - 14, W, 14, "#000")); txt(lab2, 160, H - 11, "#ffb347", "center"); }
+  if (S.banner && T < S.banner.until) { alpha(0.85, () => R(0, 0, W, 16, "#000")); if (Math.floor(T / 250) % 2) txt(S.banner.t, 160, 4, "#ff3b3b", "center"); }
+  if (S.paused && S.timerOn) { alpha(0.6, () => R(0, 0, W, H, "#000")); txt("PAUSADO", 160, 84, "#ffb347", "center", 16); }
   if (S.flash) { alpha(S.flash.a, () => R(0, 0, W, H, S.flash.c)); S.flash.a *= 0.9; if (S.flash.a < 0.02) S.flash = null; }
+  if (T < S.scareUntil) drawScare();
   if (S.fade > 0) { alpha(S.fade, () => R(0, 0, W, H, "#000")); S.fade = Math.max(0, S.fade - 0.025); }
   ctx.restore();
   requestAnimationFrame(frame);
 }
 
+function tickTimer(dt) {
+  if (!S.timerOn || S.paused || S.over) return;
+  S.timeLeft -= dt;
+  const min = S.timeLeft / 60000;
+  for (const w of [30, 15, 10, 5, 1]) {
+    if (min <= w && !S.warned[w] && S.minutes > w) {
+      S.warned[w] = true;
+      S.banner = { t: `DETONAÇÃO EM ${w} MIN`, until: T + 5000 };
+      SFX.alarm();
+    }
+  }
+  if (min < 5 && T > heartAt) { SFX.heart(); heartAt = T + (min < 1 ? 500 : 900); }
+  if (S.timeLeft <= 0) { S.timeLeft = 0; reactorEnd(); }
+  timerText();
+}
+let lastTimerStr = "";
+function timerText() {
+  const el = $("timer");
+  if (!S.timerOn && !S.over) { if (lastTimerStr !== "--") { el.textContent = "REATOR --:--"; lastTimerStr = "--"; } return; }
+  const s = Math.max(0, Math.ceil(S.timeLeft / 1000));
+  const str = `REATOR ${String(s / 60 | 0).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  if (str !== lastTimerStr) { el.textContent = str; lastTimerStr = str; }
+  el.classList.toggle("crit", s < 300 && !S.paused);
+  el.classList.toggle("paused", S.paused);
+}
+
 /* =========================================================
-   INTERFACE DE TEXTO
+   INTERFACE (promessas)
    ========================================================= */
-const elText = document.getElementById("text"), elPanel = document.getElementById("panel"), elNext = document.getElementById("next"), elWhere = document.getElementById("where");
+const elText = $("text"), elPanel = $("panel"), elNext = $("next"), elWhere = $("where");
 let typer = null, lines = [], lineIdx = 0, onDone = null, fullLine = "";
+const live = id => id === RUN;
 
 function showLine(l) {
   const o = typeof l === "string" ? { t: l } : l;
   elText.className = o.cls || "";
   fullLine = o.t; elText.textContent = ""; elNext.hidden = true;
+  if (o.sfx) {
+    SFX[o.sfx] && SFX[o.sfx]();
+    if (o.sfx === "death") { S.flash = { c: "#ff0000", a: 0.6 }; S.shake = 10; }
+    if (o.sfx === "scare") { S.scareUntil = T + 160; S.shake = 12; }
+    if (o.sfx === "bang") { S.bangT = T; S.shake = 5; }
+  }
+  if (o.fn) o.fn();
   let i = 0; clearInterval(typer);
   typer = setInterval(() => {
     i++; elText.textContent = fullLine.slice(0, i);
     if (i % 2 === 0 && fullLine[i - 1] !== " ") SFX.type();
     if (i >= fullLine.length) { clearInterval(typer); typer = null; elNext.hidden = false; }
-  }, 24);
+  }, 26);
 }
-function narrate(ls, done) {
-  S.mode = "narration"; lines = ls; lineIdx = 0; onDone = done; elPanel.innerHTML = "";
-  showLine(lines[0]);
+function narr(ls) {
+  const id = RUN;
+  ls = ls.filter(Boolean);
+  if (!ls.length) return Promise.resolve();
+  return new Promise(res => {
+    S.mode = "narration"; lines = ls; lineIdx = 0; elPanel.innerHTML = "";
+    onDone = () => { if (live(id)) res(); };
+    showLine(lines[0]);
+  });
 }
 function advance() {
   if (S.mode !== "narration") return;
   if (typer) { clearInterval(typer); typer = null; elText.textContent = fullLine; elNext.hidden = false; return; }
   lineIdx++;
   if (lineIdx < lines.length) showLine(lines[lineIdx]);
-  else { elNext.hidden = true; const d = onDone; onDone = null; d && d(); }
+  else { elNext.hidden = true; S.mode = "busy"; const d = onDone; onDone = null; d && d(); }
 }
+const wait = ms => { const id = RUN; return new Promise(res => setTimeout(() => { if (live(id)) res(); }, ms)); };
 
-function showChoices() {
-  const sc = SCENES[S.scene];
-  S.mode = "choice"; S.sel = 0;
-  elText.className = ""; elText.textContent = S.scene === 0 ? "O que vocês fazem?" : "O que vocês fazem agora?";
-  elPanel.innerHTML = "";
-  sc.options.forEach((o, i) => {
-    const b = document.createElement("button");
-    b.className = "opt"; b.type = "button";
-    const bonus = o.bonusItem && S.items.includes(o.bonusItem) ? ` <span class="tag">[+1 ${ITEMS[o.bonusItem].split(" ")[0].toUpperCase()}]</span>` : "";
-    b.innerHTML = `${i + 1}. ${o.label}${bonus}`;
-    b.addEventListener("mouseenter", () => setSel(i));
-    b.addEventListener("click", () => pick(i));
-    elPanel.appendChild(b);
+function injured() { return alive().filter(c => c.hp < 3); }
+function doseHeal() { return S.crew[1].dead ? 1 : 2; }
+
+function choose(prompt, opts, o = {}) {
+  const id = RUN;
+  return new Promise(res => {
+    const render = () => {
+      S.mode = "choice"; S.opts = opts;
+      elText.className = o.cls || ""; elText.textContent = prompt; elNext.hidden = true;
+      elPanel.innerHTML = "";
+      opts.forEach((op, i) => {
+        const b = document.createElement("button");
+        b.className = "opt"; b.type = "button";
+        if (op.disabled) b.setAttribute("aria-disabled", "true");
+        b.innerHTML = `${i + 1}. ${esc(op.label)}${op.note ? " " + op.note : ""}`;
+        b.addEventListener("mouseenter", () => setSel(i));
+        b.addEventListener("click", () => S.chooseFn(i));
+        elPanel.appendChild(b);
+      });
+      if (o.hint) { const h = document.createElement("div"); h.className = "hint"; h.textContent = o.hint; elPanel.appendChild(h); }
+      if (S.doses > 0 && injured().length && !o.noDose) {
+        const d = document.createElement("div"); d.className = "dicebar";
+        d.innerHTML = `<button class="btn small" type="button">USAR DOSE DE ESTABILIZADOR (${S.doses})</button>`;
+        d.querySelector("button").addEventListener("click", async () => { await useDose(); if (live(id)) render(); });
+        elPanel.appendChild(d);
+      }
+      const first = opts.findIndex(x => !x.disabled);
+      setSel(first < 0 ? 0 : first, true);
+    };
+    S.chooseFn = i => {
+      if (S.mode !== "choice" || !opts[i]) return;
+      if (opts[i].disabled) { SFX.error(); return; }
+      SFX.confirm(); S.mode = "busy"; S.opts = null; S.hover = null;
+      if (live(id)) res(i);
+    };
+    render();
   });
-  if (sc.hint) { const h = document.createElement("div"); h.className = "hint"; h.textContent = sc.hint; elPanel.appendChild(h); }
-  setSel(0, true);
 }
 function setSel(i, silent) {
   if (i !== S.sel && !silent) SFX.move();
   S.sel = i;
   [...elPanel.querySelectorAll(".opt")].forEach((b, j) => b.classList.toggle("sel", j === i));
 }
-function pick(i) {
-  if (S.mode !== "choice") return;
-  SFX.confirm();
-  S.picked = i;
-  showDicePanel();
-}
 
-function showDicePanel() {
-  const o = SCENES[S.scene].options[S.picked];
-  S.mode = "dice";
-  elText.className = ""; elText.textContent = `${o.label}. Rolem o dado!`;
-  const bonus = currentBonus(o);
-  elPanel.innerHTML = `
-    <div class="dicebar">
-      <button class="btn" id="rollBtn" type="button">► ROLAR O DADO</button>
-      <div class="phys"><span>DADO FÍSICO:</span>${[1,2,3,4,5,6].map(n => `<button class="btn small" type="button" data-n="${n}">${n}</button>`).join("")}</div>
-    </div>
-    <div class="hint">1 = desastre · 6 = extraordinário${bonus ? ` · bônus ativo: +${bonus}` : ""} · ESPAÇO rola o dado virtual</div>`;
-  document.getElementById("rollBtn").addEventListener("click", () => roll());
-  elPanel.querySelectorAll("[data-n]").forEach(b => b.addEventListener("click", () => roll(+b.dataset.n)));
-  document.getElementById("rollBtn").focus({ preventScroll: true });
-}
-function currentBonus(o) { return S.nextBonus + (o.bonusItem && S.items.includes(o.bonusItem) ? 1 : 0); }
-
-function roll(physical) {
-  if (S.mode !== "dice") return;
-  const o = SCENES[S.scene].options[S.picked];
-  const raw = physical || (1 + Math.random() * 6 | 0);
-  const bonus = currentBonus(o);
-  const final = Math.min(6, raw + bonus);
-  S.nextBonus = 0;
-  S.mode = "rolling"; elPanel.innerHTML = "";
-  elText.textContent = "O dado gira...";
-  S.dice = { rolling: true, t0: performance.now(), face: 1, raw, bonus, final };
-  const iv = setInterval(() => { if (!S.dice || !S.dice.rolling) return clearInterval(iv); S.dice.face = 1 + Math.random() * 6 | 0; SFX.tick(); }, 70);
-  setTimeout(() => {
-    clearInterval(iv);
-    S.dice.rolling = false; S.dice.face = raw;
-    SFX.result(final);
-    if (final === 1) { S.shake = 8; S.flash = { c: "#ff0000", a: 0.5 }; }
-    else if (final === 2) { S.shake = 4; S.flash = { c: "#ff4000", a: 0.25 }; }
-    else if (final === 6) { S.flash = { c: "#ffffff", a: 0.6 }; }
-    setTimeout(() => { S.dice = null; showResult(o, raw, bonus, final); }, 1500);
-  }, 1100);
-}
-
-function applyFx(fx) {
-  const parts = []; let clamped = false;
-  const names = { hp: "TRAJE", o2: "O2", san: "MENTE" };
-  for (const k of ["hp", "o2", "san"]) {
-    if (!fx[k]) continue;
-    const before = S[k];
-    S[k] = Math.max(5, Math.min(100, S[k] + fx[k]));
-    if (before + fx[k] < 5) clamped = true;
-    parts.push(`${names[k]} ${fx[k] > 0 ? "+" : ""}${fx[k]}`);
-  }
-  hud();
-  return { parts, clamped };
-}
-
-function clueText() {
-  const c = S.code, sorted = [...c].sort((a, b) => a - b).join(" · ");
-  return [
-    "Nenhuma pista. Vão ter que usar a lógica no teclado.",
-    `Dois dos números do código: ${[c[1], c[3]].sort((a, b) => a - b).join(" e ")}.`,
-    `Os quatro números, fora de ordem: ${sorted}.`,
-    `Os quatro números: ${sorted}. O código começa com ${c[0]}.`,
-    `Código completo: ${c.join(" ")}.`,
-  ][S.clue];
-}
-
-function showResult(o, raw, bonus, final) {
-  const out = o.out[final - 1], fx = out[1];
-  const ls = [{ t: `DADO: ${raw}${bonus ? ` + ${bonus} de bônus = ${final}` : ""} · ${RANK[final - 1]}!`, cls: "r" + final }, { t: out[0], cls: "r" + Math.max(3, final) }];
-  const { parts, clamped } = applyFx(fx);
-  if (parts.length) ls.push({ t: parts.join("   "), cls: "fx" });
-  if (clamped) ls.push({ t: "O traje injeta estimulantes de emergência. Ninguém morre nesta fase... ainda.", cls: "sys" });
-  if (fx.item && !S.items.includes(fx.item)) { S.items.push(fx.item); ls.push({ t: `ITEM OBTIDO: ${ITEMS[fx.item]}.`, cls: "item" }); hud(); }
-  if (fx.next) { S.nextBonus = 1; ls.push({ t: "Moral em alta: +1 no próximo dado.", cls: "item" }); hud(); }
-  if (fx.clue !== undefined) { S.clue = Math.max(S.clue, fx.clue); ls.push({ t: "PISTA: " + clueText(), cls: "clue" }); }
-  S.log.push({ scene: SCENES[S.scene].name.split("·")[1].trim(), choice: o.label, raw, final });
-  hud();
-  narrate(ls, () => {
-    if (S.scene === 0) narrate(["Um de vocês se aproxima do teclado e respira fundo.", "Hora de digitar o código."], enterKeypad);
-    else if (S.scene < SCENES.length - 1) goScene(S.scene + 1);
-    else startEnding();
+function pickCrew(prompt, o = {}) {
+  const id = RUN;
+  return new Promise(res => {
+    const list = alive().filter(o.filter || (() => true));
+    if (!list.length) { res(null); return; }
+    S.mode = "pick";
+    elText.className = o.cls || ""; elText.textContent = prompt; elNext.hidden = true;
+    elPanel.innerHTML = "";
+    const opts = [];
+    list.forEach(c => {
+      const b = document.createElement("button");
+      b.className = "opt"; b.type = "button";
+      const match = o.tag && c.tag === o.tag;
+      b.innerHTML = `Nº${c.n} ${c.name ? esc(c.name) + " · " : ""}${c.role} <span class="tag">vida ${c.hp}/3</span>${c.inf ? ' <span class="tag infx">[INFECTADO -1]</span>' : ""}${c.hp === 1 ? ' <span class="tag warn">[FERIDO -1]</span>' : ""}${match ? ' <span class="tag">[+1 FUNÇÃO]</span>' : ""}`;
+      b.addEventListener("click", () => S.pickFn(c.n));
+      b.addEventListener("mouseenter", () => { [...elPanel.querySelectorAll(".opt")].forEach(x => x.classList.toggle("sel", x === b)); });
+      elPanel.appendChild(b); opts.push(b);
+    });
+    if (o.cancel) {
+      const d = document.createElement("div"); d.className = "dicebar";
+      d.innerHTML = `<button class="btn small" type="button">◄ VOLTAR</button>`;
+      d.querySelector("button").addEventListener("click", () => { if (S.mode === "pick") { S.mode = "busy"; if (live(id)) res(null); } });
+      elPanel.appendChild(d);
+    }
+    const h = document.createElement("div"); h.className = "hint"; h.textContent = "Clique no tripulante ou digite o número dele."; elPanel.appendChild(h);
+    S.pickFn = n => {
+      if (S.mode !== "pick") return;
+      const c = list.find(x => x.n === n); if (!c) return;
+      SFX.confirm(); S.mode = "busy";
+      if (live(id)) res(c);
+    };
   });
 }
 
-/* ---------- Teclado da porta (point and click) ---------- */
-function enterKeypad() {
-  S.view = "keypad"; S.mode = "keypad"; S.fade = 0.6; S.entry = ""; S.screenMsg = null;
-  S.hand.x = S.hand.tx = 250; S.hand.y = S.hand.ty = 200;
-  elWhere.textContent = "Cena 1/5 · Teclado da porta C-03";
-  renderKeypadPanel();
+async function useDose() {
+  const c = await pickCrew(`Quem recebe a dose? (cura ${doseHeal()} de vida${doseHeal() === 2 ? " com Nº2 MEDICINA viva" : ""})`, { filter: x => x.hp < 3, cancel: true });
+  if (!c) return;
+  S.doses--;
+  const before = c.hp; c.hp = Math.min(3, c.hp + doseHeal());
+  hud();
+  await narr([{ t: `A agulha entra fundo. ${lab(c)} recupera ${c.hp - before} de vida (${c.hp}/3).`, cls: "r5" }]);
 }
-function renderKeypadPanel() {
-  elText.className = "clue"; elText.textContent = "Digitem o código de 4 dígitos.";
-  elPanel.innerHTML = `
-    <div class="notes"><ul>
-      <li>${clueText()}</li>
-      <li>Os 4 dígitos são todos diferentes.</li>
-    </ul></div>
-    <div class="legend"><span><i style="background:#2e9e4f"></i>posição certa</span><span><i style="background:#b8961e"></i>existe, em outro lugar</span><span><i style="background:#3a3f45"></i>não existe</span></div>
-    <div class="hint">Clique nas teclas da porta ou use o teclado: 0-9, ENTER confirma, BACKSPACE apaga.</div>`;
+
+function roll(title, mods) {
+  const id = RUN;
+  return new Promise(res => {
+    S.mode = "dice";
+    const mod = mods.reduce((a, m) => a + m.v, 0);
+    elText.className = ""; elText.textContent = title; elNext.hidden = true;
+    const ml = mods.length ? "Modificadores: " + mods.map(m => `${m.label} ${m.v > 0 ? "+" : ""}${m.v}`).join(" · ") : "Sem modificadores";
+    elPanel.innerHTML = `
+      <div class="dicebar">
+        <button class="btn" id="rollBtn" type="button">► ROLAR O DADO</button>
+        <div class="phys"><span>DADO FÍSICO:</span>${[1,2,3,4,5,6].map(n => `<button class="btn small" type="button" data-n="${n}">${n}</button>`).join("")}</div>
+      </div>
+      <div class="hint">${esc(ml)} · 1 = desastre · 6 = extraordinário</div>`;
+    const go = physical => {
+      if (S.mode !== "dice") return;
+      const raw = physical || (1 + rnd(6));
+      const final = Math.max(1, Math.min(6, raw + mod));
+      S.mode = "rolling"; elPanel.innerHTML = ""; elText.textContent = "O dado gira...";
+      S.dice = { rolling: true, t0: performance.now(), face: 1, raw, mod, final };
+      const iv = setInterval(() => { if (!S.dice || !S.dice.rolling) return clearInterval(iv); S.dice.face = 1 + rnd(6); SFX.tick(); }, 70);
+      setTimeout(() => {
+        clearInterval(iv);
+        if (!S.dice) return;
+        S.dice.rolling = false; S.dice.face = raw;
+        SFX.result(final);
+        if (final === 1) { S.shake = 8; S.flash = { c: "#ff0000", a: 0.5 }; }
+        else if (final === 2) { S.shake = 4; S.flash = { c: "#ff4000", a: 0.25 }; }
+        else if (final === 6) { S.flash = { c: "#ffffff", a: 0.6 }; }
+        setTimeout(() => { S.dice = null; if (live(id)) res({ raw, mod, final }); }, 1600);
+      }, 1300);
+    };
+    S.rollFn = go;
+    $("rollBtn").addEventListener("click", () => go());
+    elPanel.querySelectorAll("[data-n]").forEach(b => b.addEventListener("click", () => go(+b.dataset.n)));
+    $("rollBtn").focus({ preventScroll: true });
+  });
+}
+
+/* ---------- Efeitos de um resultado ---------- */
+function fmt(t, m) { return t.replace(/\{(A|R2|R|I)\}/g, (_, k) => lab(m[k])); }
+function hurt(c, v, out, cause) {
+  if (!c || c.dead || !v) return;
+  const before = c.hp;
+  c.hp = Math.max(0, Math.min(3, c.hp + v));
+  if (c.hp === 0) { kill(c, cause || S.sceneName, out); return; }
+  if (v < 0) out.push({ t: `${lab(c)}: ${c.hp === 1 ? "FERIMENTO GRAVE" : "ferimento"} (vida ${c.hp}/3).`, cls: c.hp === 1 ? "r2" : "fx" });
+  else if (c.hp > before) out.push({ t: `${lab(c)} recupera vida (${c.hp}/3).`, cls: "r5" });
+}
+function kill(c, cause, out, msg) {
+  if (c.dead) return;
+  c.dead = true; c.hp = 0; c.inf = false; c.turn = false; c.cause = cause;
+  out.push({ t: msg || `${lab(c)} MORREU.`, cls: "r1", sfx: "death", fn: hud });
+}
+function spend(min, out) {
+  if (!min) return;
+  S.timeLeft = Math.max(1, S.timeLeft + min * 60000);
+  out && out.push({ t: min < 0 ? `REATOR: ${min} MIN` : `REATOR: +${min} MIN ganhos`, cls: min < 0 ? "r2" : "r5" });
+}
+function sanity(v, out) {
+  if (!v) return;
+  S.san = Math.max(0, Math.min(100, S.san + v));
+  out && out.push({ t: `MENTE ${v > 0 ? "+" : ""}${v}${S.san < 20 ? "  ·  PÂNICO: -1 em todos os dados" : ""}`, cls: v < 0 ? "sys" : "r5" });
+}
+
+async function outcome(res, ctx = {}) {
+  const [text, fx = {}] = res;
+  const others = alive().filter(c => c !== ctx.actor && c !== ctx.inf);
+  const r = pickOne(others) || ctx.actor;
+  const r2 = pickOne(others.filter(c => c !== r)) || null;
+  const names = { A: ctx.actor, R: r, R2: r2, I: ctx.inf };
+  const out = [];
+  if (ctx.roll) {
+    const d = ctx.roll;
+    out.push({ t: `DADO ${d.raw}${d.mod ? ` ${d.mod > 0 ? "+" : "-"} ${Math.abs(d.mod)} = ${d.final}` : ""} · ${RANK[d.final - 1]}!`, cls: "r" + d.final });
+  }
+  out.push({ t: fmt(text, names), cls: fx.cls || (ctx.roll ? "r" + Math.max(3, ctx.roll.final) : ""), sfx: fx.sfx });
+  if (fx.a) hurt(ctx.actor, fx.a, out);
+  if (fx.r) hurt(r, fx.r, out);
+  if (fx.r2) hurt(r2, fx.r2, out);
+  if (fx.i) hurt(ctx.inf, fx.i, out);
+  if (fx.all) alive().forEach(c => hurt(c, fx.all, out));
+  if (fx.inf) { const c = fx.inf === "a" ? ctx.actor : r; if (c && !c.dead && !c.inf) { c.inf = true; out.push({ t: `A ferida de ${lab(c)} começa a escurecer. INFECTADO.`, cls: "inf" }); } }
+  if (fx.cure && ctx.inf && !ctx.inf.dead) { ctx.inf.inf = false; ctx.inf.turn = false; out.push({ t: `${lab(ctx.inf)} não está mais infectado.`, cls: "r5" }); }
+  sanity(fx.san, out);
+  spend(fx.time, out);
+  if (fx.doses) { S.doses += fx.doses; out.push({ t: `+${fx.doses} DOSE${fx.doses > 1 ? "S" : ""} DE ESTABILIZADOR (cada uma cura vida).`, cls: "item" }); }
+  if (fx.item && !S.items.includes(fx.item)) { S.items.push(fx.item); out.push({ t: `ITEM OBTIDO: ${ITEMS[fx.item]}.`, cls: "item" }); }
+  if (fx.next) { S.nextBonus = 1; out.push({ t: "Coragem renovada: +1 no próximo dado.", cls: "item" }); }
+  if (fx.set) Object.assign(S.flags, fx.set);
+  if (fx.seq === "part") { addNote(`Visão do monólito: a ignição começa com ${S.seq.slice(0, 3).map(c => COLORS[c]).join(", ")}.`); out.push({ t: "NOTA ADICIONADA: visão parcial das cores.", cls: "clue" }); }
+  if (fx.seq === "full") { addNote(`Visão do monólito: ${S.seq.map(c => COLORS[c]).join(", ")}.`); out.push({ t: "NOTA ADICIONADA: a sequência completa de cores.", cls: "clue" }); }
+  hud();
+  await narr(out);
+  hud();
+  await checkWipe();
+}
+async function checkWipe() {
+  if (alive().length === 0) { await endAllDead(); throw STOP; }
+}
+
+function modsFor(op, actor) {
+  const m = [];
+  if (actor && op.tag && actor.tag === op.tag) m.push({ label: ROLE_OF[op.tag], v: 1 });
+  if (op.item && S.items.includes(op.item)) m.push({ label: ITEMS[op.item], v: 1 });
+  if (S.nextBonus) { m.push({ label: "Coragem", v: 1 }); S.nextBonus = 0; }
+  if (S.san < 20) m.push({ label: "Pânico", v: -1 });
+  if (actor && actor.hp === 1) m.push({ label: "Ferimento grave", v: -1 });
+  if (actor && actor.inf) m.push({ label: "Infecção", v: -1 });
+  return m;
+}
+function noteFor(op) {
+  const n = [];
+  if (op.need && !S.items.includes(op.need)) n.push(`<span class="tag warn">[precisa: ${ITEMS[op.need]}]</span>`);
+  if (op.tag) n.push(`<span class="tag">[+1 ${ROLE_OF[op.tag]}]</span>`);
+  if (op.item && S.items.includes(op.item)) n.push(`<span class="tag">[+1 ${ITEMS[op.item].toUpperCase()}]</span>`);
+  if (op.noDice) n.push(`<span class="tag done">[sem dado]</span>`);
+  if (op.cost) n.push(`<span class="tag warn">[${op.cost}]</span>`);
+  return n.join(" ");
+}
+
+/* Uma escolha com dado, executada por um tripulante */
+async function action(prompt, options, o = {}) {
+  for (;;) {
+    const opts = options.map(op => ({ label: op.label, hot: op.hot, disabled: !!(op.need && !S.items.includes(op.need)), note: noteFor(op) }));
+    const i = await choose(prompt, opts, { hint: o.hint });
+    const op = options[i];
+    let actor = null;
+    if (op.actor !== false) {
+      actor = await pickCrew(op.who || "Quem faz isso?", { tag: op.tag, cancel: true, filter: op.filter });
+      if (!actor) continue;
+    }
+    S.log.push({ scene: S.sceneName, choice: op.label, who: actor ? lab(actor) : "grupo", final: null });
+    if (op.noDice) { await outcome(op.result, { actor, ...o.ctx }); return { i, actor }; }
+    const r = await roll(`${op.label}${actor ? ` · ${lab(actor)}` : " · todo o grupo"}. Rolem o dado!`, modsFor(op, actor));
+    S.log[S.log.length - 1].final = r.final;
+    await outcome(op.out[r.final - 1], { actor, roll: r, ...o.ctx });
+    return { i, actor, final: r.final };
+  }
+}
+
+function setScene(view, name, extras = []) {
+  S.view = view; S.sceneName = name; S.fade = 1; S.hover = null; S.extraHots = extras; S.tint = false;
+  elWhere.textContent = "Fase 1 · " + name;
+  elWhere.classList.remove("whisper");
+}
+
+/* =========================================================
+   CENA 1 — CELA DE CONTENÇÃO (enigma do código)
+   ========================================================= */
+const CLUE_INTRO = {
+  wall: "Escrito com sangue, em letras que escorrem:",
+  term: "O terminal pisca. Registro do engenheiro-chefe, corrompido:",
+  locker: "Por dentro da porta do armário, arranhões fundos formam frases:",
+  corpse: "Preso na luva do engenheiro, um crachá. No verso, a letra tremida:",
+};
+const cluesOf = src => S.clues.filter(c => c.src === src).map(c => ({ t: "“" + c.t + "”", cls: "clue" }));
+
+async function sceneCell() {
+  setScene("cell", "Cena 1 · Cela de contenção", [
+    { x: 248, y: 20, w: 44, h: 22, label: "DUTO", desc: "Algo arranhou a grade por dentro. Ainda está arranhando." },
+    { x: 116, y: 40, w: 88, h: 86, label: "PORTA BLINDADA C-03", desc: "Trancada. Do outro lado, silêncio. Silêncio demais." },
+  ]);
+  await narr([
+    "Escuridão. Um zumbido grave atravessa o metal e os ossos.",
+    "Oito tripulantes da nave mineradora CSV TÁRTARO acordam no chão gelado de uma cela de contenção.",
+    "Ninguém lembra como chegou aqui. Algumas unhas estão quebradas, como se tivessem arranhado alguma coisa.",
+    { t: `ALERTA: NÚCLEO DO REATOR INSTÁVEL. DETONAÇÃO EM ${S.minutes} MINUTOS.`, cls: "r1", sfx: "alarm", fn: () => { S.timerOn = true; } },
+    "A única saída é uma porta blindada. O teclado ao lado pede um código de 4 dígitos.",
+    "O painel não diz se vocês estão perto ou longe. Só diz NEGADO.",
+    "As pistas estão nesta cela. Algumas no escuro. Algumas em lugares onde ninguém quer pôr a mão.",
+    { t: "Movam o mouse para apontar a lanterna. Cliquem para examinar.", cls: "sys" },
+  ]);
+  const seen = new Set();
+  for (;;) {
+    const opts = [
+      { id: "wall", label: "Ler a escrita na parede", hot: { x: 14, y: 30, w: 90, h: 24, label: "ESCRITA NA PAREDE" } },
+      { id: "term", label: "Religar o terminal quebrado", cost: "-1 min", hot: { x: 34, y: 72, w: 50, h: 44, label: "TERMINAL" } },
+      { id: "locker", label: "Arrombar o armário de metal", cost: "-1 min", hot: { x: 234, y: 48, w: 34, h: 64, label: "ARMÁRIO" } },
+      { id: "corpse", label: "Revistar o corpo do engenheiro", tag: "med", cost: "risco", hot: { x: 224, y: 132, w: 70, h: 24, label: "CORPO DO ENGENHEIRO" } },
+      { id: "keypad", label: "Digitar um código no teclado", hot: { x: 206, y: 74, w: 22, h: 28, label: "TECLADO" } },
+      { id: "force", label: "Arrancar o painel e fazer ligação direta", tag: "eng", cost: "risco, -2 min" },
+    ].map(op => ({ ...op, note: (seen.has(op.id) ? '<span class="tag done">[visto]</span> ' : "") + noteFor(op) }));
+    const i = await choose("O que vocês fazem?", opts, { hint: `Pistas encontradas: ${S.notes.filter(n => n.src).length}/${S.clues.length}. Todas ficam em NOTAS.` });
+    const id = opts[i].id;
+    if (id === "keypad") {
+      const who = await pickCrew("Quem vai digitar?", { cancel: true });
+      if (!who) continue;
+      S.keyActor = who;
+      if (await keypad()) break;
+      continue;
+    }
+    if (id === "force") {
+      const a = await pickCrew("Quem arranca o painel?", { tag: "eng", cancel: true });
+      if (!a) continue;
+      const r = await roll(`Ligação direta · ${lab(a)}. Rolem o dado!`, modsFor({ tag: "eng" }, a));
+      S.log.push({ scene: S.sceneName, choice: "Ligação direta no painel", who: lab(a), final: r.final });
+      const res = [
+        ["Uma descarga atravessa o corpo de {A}. O cheiro de carne queimada enche a cela.", { a: -2, time: -2 }],
+        ["O painel solta faíscas e dispara uma sirene. Algo responde, batendo do outro lado da porta.", { a: -1, san: -10, time: -2, sfx: "bang" }],
+        ["Fios demais. Nenhum parece o certo. Tempo perdido.", { time: -2 }],
+        ["Quase! A trava estala... e volta. Mais uma tentativa talvez funcione.", { time: -2 }],
+        ["A trava magnética cede com um estalo seco. A porta destrava.", { time: -2 }],
+        ["{A} faz a ligação de primeira. A porta destrava e o painel ainda mostra o mapa do setor.", { time: -1, next: 1 }],
+      ][r.final - 1];
+      await outcome(res, { actor: a, roll: r });
+      if (r.final >= 5) { S.flags.forced = true; break; }
+      continue;
+    }
+    if (seen.has(id)) { await narr([{ t: CLUE_INTRO[id], cls: "fx" }, ...cluesOf(id)]); continue; }
+    seen.add(id);
+    const out = [];
+    if (id === "wall") {
+      out.push("Vocês apontam a lanterna para a parede. As letras ainda estão úmidas.");
+    } else if (id === "term") {
+      spend(-1, out);
+      out.unshift("Alguém bate no terminal até ele acender. A tela treme.");
+    } else if (id === "locker") {
+      S.flags.lockerOpen = true;
+      spend(-1, out);
+      out.unshift({ t: "A porta do armário cede... e um corpo desaba em cima de vocês!", sfx: "scare" });
+      out.push("Não tem rosto. Só um sorriso onde o rosto deveria estar.");
+      sanity(-10, out);
+    } else if (id === "corpse") {
+      const a = await pickCrew("Quem revista o corpo?", { tag: "med", cancel: true });
+      if (!a) { seen.delete(id); continue; }
+      const r = await roll(`Revistar o corpo · ${lab(a)}. Rolem o dado!`, modsFor({ tag: "med" }, a));
+      S.log.push({ scene: S.sceneName, choice: "Revistar o corpo do engenheiro", who: lab(a), final: r.final });
+      await outcome([
+        ["Os dedos do morto se fecham no pulso de {A}. Os dentes vêm logo depois.", { a: -1, inf: "a", sfx: "scare", san: -10 }],
+        ["Uma costela quebrada rasga a luva de {A}.", { a: -1 }],
+        ["O corpo está frio. Frio demais para quem morreu há pouco.", { san: -5 }],
+        ["{A} revista o corpo com cuidado. Nada se mexe.", {}],
+        ["Nos bolsos, uma dose de estabilizador.", { doses: 1 }],
+        ["No cinto do engenheiro, um cortador de plasma carregado.", { item: "cortador" }],
+      ][r.final - 1], { actor: a, roll: r });
+    }
+    out.push({ t: CLUE_INTRO[id], cls: "fx" }, ...cluesOf(id));
+    S.clues.filter(c => c.src === id).forEach(c => { if (!S.notes.some(n => n.t === c.t)) S.notes.push({ t: c.t, cls: "clue", src: id }); });
+    hud();
+    await narr(out);
+    await checkWipe();
+  }
+  await openDoorAnim();
+}
+
+function keypad() {
+  const id = RUN;
+  return new Promise(res => {
+    S.view = "keypad"; S.mode = "keypad"; S.entry = ""; S.screenMsg = null; S.keypadLocked = false;
+    S.hand.x = S.hand.tx = 250; S.hand.y = S.hand.ty = 200;
+    elWhere.textContent = "Cena 1 · Teclado da porta C-03";
+    const found = S.notes.filter(n => n.src);
+    elText.className = "clue"; elText.textContent = `${lab(S.keyActor)} digita. Código de 4 dígitos.`;
+    elPanel.innerHTML = `
+      <div class="notes"><ul>${found.length ? found.map(n => `<li>${esc(n.t)}</li>`).join("") : "<li>Nenhuma pista encontrada ainda.</li>"}</ul></div>
+      <div class="hint">O painel não dá dicas. Cada erro custa 1 minuto, e o barulho atrai coisas. Teclas: 0-9 · ENTER confirma · BACKSPACE apaga · ESC volta.</div>
+      <div class="dicebar"><button class="btn small" id="backBtn" type="button">◄ VOLTAR PARA A CELA</button></div>`;
+    $("backBtn").addEventListener("click", () => S.keypadDone(false));
+    S.keypadDone = ok => {
+      if (S.mode !== "keypad" && !ok) return;
+      S.mode = "busy"; S.view = "cell"; elWhere.textContent = "Fase 1 · " + S.sceneName;
+      if (live(id)) res(ok);
+    };
+  });
 }
 function pressKey(k) {
   if (S.mode !== "keypad" || S.keypadLocked) return;
   const key = KEYS.find(q => q.k === k); if (!key) return;
   S.hand.tx = key.x + key.w / 2; S.hand.ty = key.y + key.h / 2;
-  S.pressed = k; S.pressedUntil = T + 160;
-  S.screenMsg = null;
+  S.pressed = k; S.pressedUntil = T + 160; S.screenMsg = null;
   if (k === "C") { S.entry = ""; SFX.key(); return; }
   if (k === "OK") { if (S.entry.length < 4) { SFX.error(); return; } SFX.key(); submitCode(); return; }
   if (S.entry.length < 4) { S.entry += k; SFX.key(); } else SFX.error();
 }
-function backspace() { if (S.mode === "keypad" && !S.keypadLocked) { S.entry = S.entry.slice(0, -1); SFX.key(); } }
 function submitCode() {
   const g = S.entry.split("").map(Number);
-  const fb = g.map((d, i) => d === S.code[i] ? 2 : S.code.includes(d) ? 1 : 0);
-  S.attempts.push({ guess: g, fb });
-  if (fb.every(v => v === 2)) return openDoor(false);
-  S.keypadLocked = true;
-  S.screenMsg = "err"; SFX.error(); S.shake = 3;
-  applyFx({ o2: -3 });
-  setTimeout(() => {
-    S.entry = ""; S.screenMsg = null; S.keypadLocked = false;
-    if (S.attempts.length >= 8) { S.keypadLocked = true; openDoor(true); }
-  }, 900);
-}
-function openDoor(forced) {
-  S.keypadLocked = true; S.mode = "busy";
-  if (!forced) { S.screenMsg = "ok"; SFX.success(); }
-  else { S.flash = { c: "#ffffff", a: 0.4 }; noise(0.4, 0.3, 4000); }
-  elText.className = forced ? "sys" : "r5";
-  elText.textContent = forced ? "O painel entra em curto e a trava magnética cede sozinha." : "ACESSO LIBERADO.";
-  elPanel.innerHTML = "";
-  setTimeout(() => {
-    S.view = "cell"; S.fade = 0.5; S.doorOpen = 0; SFX.door();
-    const t0 = performance.now();
-    const step = () => { S.doorOpen = Math.min(1, (performance.now() - t0) / 1600); if (S.doorOpen < 1) requestAnimationFrame(step); else setTimeout(() => goScene(1), 600); };
-    requestAnimationFrame(step);
-  }, 1300);
-}
-
-/* ---------- Fluxo ---------- */
-function goScene(i) {
-  S.scene = i; const sc = SCENES[i];
-  S.view = sc.view; S.fade = 1; S.hover = null;
-  if (i > 0) SFX.whoosh();
-  elWhere.textContent = "Fase 1 · " + sc.name;
-  narrate(sc.intro, showChoices);
-}
-function startEnding() {
-  S.view = "ending"; S.endT0 = performance.now(); S.fade = 1;
-  elWhere.textContent = "Fase 1 · Fim";
-  SFX.door();
-  narrate(ENDING, showSummary);
-}
-function showSummary() {
-  S.mode = "end";
-  const avg = S.log.reduce((a, l) => a + l.final, 0) / S.log.length;
-  const rank = avg >= 5 ? "LENDAS DO VAZIO" : avg >= 4 ? "SOBREVIVENTES DE ELITE" : avg >= 3 ? "TRIPULAÇÃO DE SORTE" : "VIVOS POR UM FIO";
-  elText.className = "r6"; elText.textContent = "FIM DA FASE 1. CONTINUA...";
-  elPanel.innerHTML = `
-    <div class="rank">AVALIAÇÃO: ${rank}</div>
-    <div class="summary">
-      <div><span class="k">Traje:</span> ${S.hp}%</div><div><span class="k">Oxigênio:</span> ${S.o2}%</div>
-      <div><span class="k">Mente:</span> ${S.san}%</div><div><span class="k">Tentativas no teclado:</span> ${S.attempts.length}</div>
-      <div><span class="k">Itens:</span> ${S.items.map(i => ITEMS[i]).join(", ") || "nenhum"}</div><div><span class="k">Média dos dados:</span> ${avg.toFixed(1)}</div>
-    </div>
-    <div class="logwrap"><table class="log">${S.log.map(l => `<tr><td class="k">${l.scene}</td><td>${l.choice}</td><td class="n">DADO ${l.final}</td></tr>`).join("")}</table></div>
-    <div class="dicebar"><button class="btn" id="againBtn" type="button">► JOGAR NOVAMENTE</button></div>`;
-  document.getElementById("againBtn").addEventListener("click", () => { resetState(); S.mode = "narration"; hud(); document.getElementById("title").hidden = true; goScene(0); });
-}
-
-function hud() {
-  for (const [k, id] of [["hp", "hp"], ["o2", "o2"], ["san", "san"]]) {
-    const b = document.getElementById("b" + id);
-    b.querySelector("i").style.width = S[k] + "%";
-    b.classList.toggle("low", S[k] <= 25);
-    document.getElementById("n" + id).textContent = S[k];
+  if (g.every((d, i) => d === S.code[i])) {
+    S.keypadLocked = true; S.screenMsg = "ok"; SFX.success();
+    S.log.push({ scene: S.sceneName, choice: `Código ${S.entry} digitado`, who: lab(S.keyActor), final: null });
+    setTimeout(() => S.keypadDone(true), 1300);
+    return;
   }
-  document.getElementById("items").textContent = S.items.length ? "ITENS: " + S.items.map(i => ITEMS[i].split(" ")[0]).join(", ") : "";
-  document.getElementById("bonus").textContent = S.nextBonus ? "+1 NO PRÓXIMO DADO" : "";
+  S.keypadLocked = true; S.screenMsg = "err"; SFX.error(); S.shake = 3;
+  S.tried.push(S.entry); S.wrong++;
+  spend(-1);
+  if (S.wrong % 3 === 0) {
+    setTimeout(() => { SFX.bang(); S.bangT = T; S.shake = 8; sanity(-10); hud(); S.banner = { t: "ALGO BATE DO OUTRO LADO", until: T + 2500 }; }, 500);
+  }
+  hud();
+  setTimeout(() => { S.entry = ""; S.screenMsg = null; S.keypadLocked = false; }, 900);
+}
+function openDoorAnim() {
+  const id = RUN;
+  return new Promise(res => {
+    S.view = "cell"; S.mode = "busy"; S.doorOpen = 0; SFX.door();
+    elText.className = "r5"; elText.textContent = S.flags.forced ? "A trava cede. A porta range ao abrir." : "ACESSO LIBERADO."; elPanel.innerHTML = "";
+    const t0 = performance.now();
+    const step = () => { S.doorOpen = Math.min(1, (performance.now() - t0) / 1600); if (S.doorOpen < 1) requestAnimationFrame(step); else setTimeout(() => { if (live(id)) res(); }, 700); };
+    requestAnimationFrame(step);
+  });
 }
 
-function start() {
+/* =========================================================
+   CENA 2 — CORREDOR B-7
+   ========================================================= */
+async function sceneCorridor() {
+  setScene("corridor", "Cena 2 · Corredor B-7", [{ x: 60, y: 150, w: 200, h: 30, label: "RASTRO", desc: "Ainda está quente." }]);
+  SFX.whoosh();
+  await narr([
+    "O ar do corredor é quente e úmido. Não deveria ser.",
+    "As lâmpadas piscam em intervalos irregulares. No chão, um rastro escuro e grosso.",
+    "O rastro sobe pela parede e entra num duto de ventilação arrombado de dentro para fora.",
+    { t: "Lá dentro, algo se move. Devagar. Acompanhando vocês.", sfx: "whisper" },
+  ]);
+  await action("Como vocês atravessam o corredor?", [
+    { label: "Atravessar correndo, todos juntos", tag: "seg", who: "Quem vai na frente?", hot: { x: 138, y: 60, w: 44, h: 46, label: "PORTA DO FIM" }, out: [
+      ["Algo despenca do teto sobre {A}. Garras. Dentes. Depois some pelo duto.", { a: -2, inf: "a", san: -10, sfx: "scare" }],
+      ["{R} escorrega no rastro e bate o capacete. O visor trinca.", { r: -1, time: -2 }],
+      ["Vocês chegam ao fim, mas {A} tem um corte fundo no braço.", { a: -1 }],
+      ["Chegam sem ferimentos. Ninguém olha para trás.", { san: -5 }],
+      ["Uma corrida limpa e rápida.", { time: 2 }],
+      ["Vocês passam e {A} lacra o duto atrás. Um grito inumano ecoa e silencia.", { san: 5, next: 1 }],
+    ]},
+    { label: "Rastejar pelos dutos de manutenção", tag: "man", who: "Quem vai primeiro no duto?", hot: { x: 14, y: 94, w: 54, h: 62, label: "ENTRADA DE MANUTENÇÃO (atrás das caixas)" }, out: [
+      ["Algo agarra os tornozelos de {A} e puxa para a escuridão. Os gritos duram muito tempo.", { a: -3, san: -20 }],
+      ["{A} fica entalado. Quando consegue sair, o traje está rasgado.", { a: -1, time: -3 }],
+      ["O duto é longo e estreito. Longo demais.", { time: -3 }],
+      ["Vocês saem do outro lado, sujos, mas inteiros.", { time: -1 }],
+      ["{A} encontra um atalho pelo duto.", { time: 2 }],
+      ["Um atalho, e preso à grade, um cortador de plasma.", { time: 2, item: "cortador" }],
+    ]},
+    { label: "Investigar o duto arrombado", tag: "cie", who: "Quem enfia a lanterna no duto?", hot: { x: 248, y: 64, w: 38, h: 32, label: "DUTO ARROMBADO" }, out: [
+      ["Um braço longo e ossudo sai do duto e agarra {A}!", { a: -2, inf: "a", sfx: "scare" }],
+      ["Olhos amarelos. Dezenas deles. Todos piscam ao mesmo tempo.", { san: -20 }],
+      ["Vazio. Mas o cheiro é de coisa viva. E de coisa morta.", { san: -5 }],
+      ["Dentro do duto, um mapa rabiscado da nave.", { time: 1 }],
+      ["Presa na grade, uma lanterna de alta potência.", { item: "lanterna" }],
+      ["{A} solda a grade com um maçarico esquecido. Nada mais sai dali.", { san: 10, next: 1 }],
+    ]},
+  ]);
+}
+
+/* =========================================================
+   CENA 3 — A PORTA DE QUARENTENA (escolha moral)
+   ========================================================= */
+async function sceneSealed() {
+  setScene("sealed", "Cena 3 · Porta de quarentena", [{ x: 110, y: 136, w: 100, h: 10, label: "SANGUE", desc: "Escorre por baixo da porta. Do lado de lá." }]);
+  const bang = { sfx: "bang" };
+  await narr([
+    "No fim do corredor, uma porta de quarentena selada. Do outro lado: batidas.",
+    { t: "— Por favor! Eu sou a Rhea, da equipe de sondagem! Abram, eles estão vindo!", cls: "voice", ...bang },
+    "Pela janelinha embaçada, vocês veem um rosto. Humano. Chorando.",
+    "Mas o selo da porta diz: SETOR CONTAMINADO. E há sangue escorrendo por baixo dela.",
+    { t: "— Eu não fui mordida! Eu juro! Eu sei o nome de vocês... eu sei o nome de todos vocês...", cls: "voice", ...bang },
+  ]);
+  const r = await action("O que vocês fazem com Rhea?", [
+    { label: "Abrir a porta", tag: "med", who: "Quem abre a porta e examina Rhea?", hot: { x: 138, y: 48, w: 44, h: 30, label: "JANELA DA PORTA" }, out: [
+      ["A porta abre. Rhea sorri. Sorri demais. A mandíbula se abre até as orelhas e ela salta sobre {A}!", { a: -2, inf: "a", san: -20, sfx: "scare", set: { rhea: "dead" } }],
+      ["{A} vê as veias pretas no pescoço dela a tempo e bate a porta. Os pedidos de Rhea viram um rosnado.", { san: -20, set: { rhea: "lost" } }],
+      ["Rhea está ferida, mas é humana. Ela vem junto, mancando. Vocês perdem tempo.", { time: -2, set: { rhea: "joined" } }],
+      ["Rhea está limpa. Ela abraça {A} e não solta por um bom tempo.", { san: 5, set: { rhea: "joined" } }],
+      ["Rhea está limpa e conhece um atalho até a enfermaria.", { time: 3, set: { rhea: "joined" } }],
+      ["Rhea está limpa, conhece um atalho e traz uma dose de estabilizador.", { time: 3, doses: 1, set: { rhea: "joined" } }],
+    ]},
+    { label: "Deixá-la para trás", noDice: true, actor: false, hot: { x: 262, y: 40, w: 40, h: 100, label: "SEGUIR PELO CORREDOR" },
+      result: ["Vocês se afastam. Rhea bate no vidro, grita o nome de cada um. Depois, só se ouve algo mastigando.", { san: -25, set: { rhea: "left" } }] },
+    { label: "Passar um cilindro de oxigênio pela fresta e prometer voltar", noDice: true, actor: false, hot: { x: 146, y: 92, w: 28, h: 10, label: "FRESTA" },
+      result: ["Rhea pega o cilindro com as mãos trêmulas. — Vocês vão voltar, não vão? Ninguém responde.", { san: -10, time: -1, set: { rhea: "left" } }] },
+  ]);
+  if (S.flags.rhea === "joined") await narr([{ t: "Rhea agora segue o grupo. Ela não é uma jogadora, mas precisa de um lugar na nave de fuga.", cls: "sys" }]);
+  hud();
+  return r;
+}
+
+/* =========================================================
+   CENA 4 — ENFERMARIA (exploração)
+   ========================================================= */
+async function sceneMedbay() {
+  setScene("medbay", "Cena 4 · Enfermaria", [
+    { x: 38, y: 36, w: 56, h: 36, label: "MONITOR CARDÍACO", desc: "Os batimentos na tela aceleram quando vocês chegam perto." },
+    { x: 196, y: 44, w: 26, h: 26, label: "MARCAS DE MÃOS", desc: "Mãos ensanguentadas. Dedos compridos demais." },
+  ]);
+  SFX.whoosh();
+  await narr([
+    "A enfermaria. As macas estão viradas, e as cortinas balançam sem vento.",
+    "Um monitor cardíaco apita num ritmo calmo. Não há ninguém ligado a ele.",
+    "Sobre a única maca de pé, um lençol cobre uma forma humana. O lençol sobe e desce.",
+    "No balcão, um gravador pisca: 1 MENSAGEM. No canto, um armário de remédios.",
+    { t: "Cada coisa que vocês examinam custa tempo. O reator não espera.", cls: "sys" },
+  ]);
+  const done = new Set();
+  for (;;) {
+    const opts = [
+      { id: "cab", label: "Vasculhar o armário de remédios", tag: "med", hot: { x: 232, y: 54, w: 58, h: 90, label: "ARMÁRIO DE REMÉDIOS" } },
+      { id: "rec", label: "Ouvir o gravador", cost: "-2 min", hot: { x: 158, y: 104, w: 28, h: 18, label: "GRAVADOR" } },
+      { id: "sheet", label: "Levantar o lençol da maca", tag: "cie", item: "lanterna", hot: { x: 18, y: 86, w: 94, h: 34, label: "MACA COBERTA" } },
+      { id: "go", label: "Sair da enfermaria", hot: { x: 294, y: 40, w: 24, h: 100, label: "SAÍDA" } },
+    ].map(op => ({ ...op, disabled: done.has(op.id), note: (done.has(op.id) ? '<span class="tag done">[feito]</span> ' : "") + noteFor(op) }));
+    const i = await choose("O que vocês fazem na enfermaria?", opts);
+    const id = opts[i].id;
+    if (id === "go") break;
+    if (id === "rec") {
+      done.add(id);
+      S.flags.recorder = true;
+      const out = [];
+      spend(-2, out);
+      addNote(`Cantiga da médica (ignição da nave de fuga): “${poemText()}”`);
+      await narr([
+        "A voz é da médica de bordo. Ela está chorando baixinho.",
+        { t: "— Se alguém ouvir isto... a ignição da nave de fuga do Hangar 3 está travada numa sequência de cores.", cls: "voice" },
+        { t: "— Eu escondi a sequência na cantiga que eu cantava para a minha filha:", cls: "voice" },
+        { t: "“" + poemText() + "”", cls: "clue" },
+        { t: "— Eles imitam vozes. Não abram a porta para ninguém que chore.", cls: "voice" },
+        { t: "A gravação termina com a médica cantando, desafinada. Depois, outra voz continua a cantiga.", sfx: "whisper" },
+        ...out,
+        { t: "NOTA ADICIONADA: a cantiga da médica.", cls: "clue" },
+      ]);
+      const o2 = []; sanity(-15, o2); await narr(o2);
+      continue;
+    }
+    const a = await pickCrew(id === "cab" ? "Quem vasculha o armário?" : "Quem levanta o lençol?", { tag: id === "cab" ? "med" : "cie", cancel: true });
+    if (!a) continue;
+    done.add(id);
+    const op = opts[i];
+    const r = await roll(`${op.label} · ${lab(a)}. Rolem o dado!`, modsFor(op, a));
+    S.log.push({ scene: S.sceneName, choice: op.label, who: lab(a), final: r.final });
+    if (id === "cab") {
+      await outcome([
+        ["Uma agulha contaminada atravessa a luva de {A}.", { a: -1, inf: "a" }],
+        ["Só frascos quebrados. A busca consome minutos preciosos.", { time: -2 }],
+        ["Uma dose de estabilizador.", { doses: 1 }],
+        ["Duas doses de estabilizador.", { doses: 2 }],
+        ["Três doses de estabilizador.", { doses: 3 }],
+        ["Três doses e um soro experimental que cura infecções.", { doses: 3, item: "soro" }],
+      ][r.final - 1], { actor: a, roll: r });
+    } else {
+      S.flags.sheetOff = true;
+      await outcome([
+        ["O corpo se senta num tranco e crava os dentes no braço de {A}!", { a: -2, inf: "a", sfx: "scare" }],
+        ["O rosto sob o lençol não tem olhos. Mas vira para acompanhar {A}.", { san: -20 }],
+        ["Um tripulante morto. Na mão, uma foto de família. O lençol continua subindo e descendo.", { san: -10 }],
+        ["Um tripulante em coma agarra {A} e sussurra: — Não olhem para a pedra vermelha.", { san: -5 }],
+        ["Um paciente sedado e, ao lado dele, uma dose intacta de estabilizador.", { doses: 1 }],
+        ["O paciente acorda por um segundo e entrega um cartão de acesso mestre.", { item: "cartao" }],
+      ][r.final - 1], { actor: a, roll: r });
+    }
+  }
+}
+
+/* =========================================================
+   CENA 5 — ECLUSA (sacrifício)
+   ========================================================= */
+async function sceneAirlock() {
+  setScene("airlock", "Cena 5 · Eclusa de pressão");
+  SFX.whoosh();
+  await narr([
+    "O caminho para o hangar passa por uma eclusa de pressão.",
+    { t: "No meio dela, o som começa: dezenas de passos. Unhas no metal.", sfx: "bang" },
+    "Pela janela da porta de trás, vocês veem olhos amarelos. São muitos. E estão vindo.",
+    "A porta só fecha na manivela, e a manivela fica do lado de cá.",
+    { t: "Alguém precisa segurá-la enquanto os outros passam.", cls: "r1" },
+  ]);
+  await action("Quem fica na manivela?", [
+    { label: "Um voluntário segura a manivela", tag: "seg", who: "Quem segura a manivela?", hot: { x: 78, y: 80, w: 24, h: 24, label: "MANIVELA" }, out: [
+      ["Garras atravessam a fresta e puxam {A}. Vocês ouvem tudo pelo rádio do traje. Até o fim.", { a: -3, san: -20 }],
+      ["{A} segura até o limite. Uma garra rasga o traje antes de a porta fechar.", { a: -2 }],
+      ["{A} fecha a porta, mas leva um corte fundo no ombro.", { a: -1 }],
+      ["{A} fecha a porta e corre. Por pouco.", { san: -5 }],
+      ["{A} tranca a porta com perfeição. O barulho do outro lado vai sumindo.", {}],
+      ["{A} tranca a porta e aciona a descompressão do outro lado. O silêncio depois é absoluto.", { san: 10, next: 1 }],
+    ]},
+    { label: "Ninguém fica: todos correm juntos", actor: false, hot: { x: 262, y: 40, w: 48, h: 100, label: "SAÍDA" }, out: [
+      ["A porta não fecha a tempo. Eles entram. Na confusão, {R} fica para trás.", { r: -3, r2: -1, san: -20 }],
+      ["Uma garra alcança {R} antes de a porta fechar.", { r: -2, time: -1 }],
+      ["{R} e {R2} se ferem na corrida.", { r: -1, r2: -1 }],
+      ["{R} tropeça e se machuca, mas todos passam.", { r: -1 }],
+      ["Todos passam. A porta fecha sozinha atrás de vocês.", {}],
+      ["Todos passam, e a porta esmaga o primeiro que tenta entrar.", { san: 5 }],
+    ]},
+    { label: "Soldar a porta com o cortador de plasma", need: "cortador", tag: "eng", who: "Quem solda a porta?", hot: { x: 10, y: 32, w: 64, h: 110, label: "PORTA DE TRÁS" }, out: [
+      ["O cortador superaquece e explode nas mãos de {A}. A porta cede e algo alcança {R}.", { a: -2, r: -1 }],
+      ["A solda demora demais. {A} queima as mãos.", { a: -1, time: -4 }],
+      ["A solda segura, mas leva uma eternidade.", { time: -4 }],
+      ["Solda firme.", { time: -3 }],
+      ["Solda rápida e firme.", { time: -2 }],
+      ["Solda perfeita, em segundos. Do outro lado, eles desistem.", { time: -1, san: 10 }],
+    ]},
+  ]);
+}
+
+/* =========================================================
+   CENA 6 — ANEL DE OBSERVAÇÃO (gravidade zero)
+   ========================================================= */
+async function sceneVoid() {
+  setScene("void", "Cena 6 · Anel de observação", [{ x: 170, y: 20, w: 110, h: 96, label: "PLANETA PARTIDO", desc: "Olhar para ele dá dor de cabeça. E vontade de continuar olhando." }]);
+  SFX.whoosh();
+  await narr([
+    "O Anel de Observação. Metade da parede sumiu, arrancada para o espaço.",
+    "Não há gravidade. Não há som. Só a respiração de vocês dentro dos capacetes.",
+    "Lá fora, o planeta partido sangra luz vermelha.",
+    "Corpos congelados flutuam entre os destroços. Alguns ainda estão de olhos abertos.",
+    S.san < 45 ? { t: "Por um segundo, vocês veem alguém do lado de fora da janela. Sem traje. Acenando.", cls: "r1", sfx: "whisper" } : null,
+  ]);
+  await action("Como vocês atravessam o vazio?", [
+    { label: "Saltar direto pelo vazio", tag: "pil", who: "Quem salta primeiro?", hot: { x: 112, y: 136, w: 96, h: 44, label: "O VAZIO" }, out: [
+      ["{A} erra o salto. O traje gira, cada vez menor, até sumir na escuridão.", { a: -3, san: -20 }],
+      ["{A} bate num destroço. O visor trinca e o ar escapa num fio branco.", { a: -2 }],
+      ["Um corpo congelado bate no visor de {A}. Está sorrindo.", { san: -15 }],
+      ["Um salto limpo. Os outros seguem em silêncio.", {}],
+      ["Salto perfeito. Vocês ganham minutos preciosos.", { time: 2 }],
+      ["Um salto de elite. Do outro lado, {A} encontra um atalho para o hangar.", { time: 3, next: 1 }],
+    ]},
+    { label: "Estender o cabo e atravessar em fila", tag: "man", who: "Quem leva o cabo?", hot: { x: 104, y: 116, w: 112, h: 18, label: "CABO DE SEGURANÇA" }, out: [
+      ["O cabo se parte. {A} e {R} são jogados contra a estrutura.", { a: -2, r: -1 }],
+      ["O cabo enrosca nos destroços. Soltá-lo leva uma eternidade.", { time: -4 }],
+      ["Travessia lenta e silenciosa.", { time: -3 }],
+      ["O cabo aguenta. Todos atravessam.", { time: -2 }],
+      ["Travessia firme, e {R} ainda recolhe peças para consertar o traje.", { time: -2, r: 1 }],
+      ["O cabo tem um carrinho de transporte. Vocês deslizam até o outro lado.", { time: -1, next: 1 }],
+    ]},
+    { label: "Religar a gravidade no painel", tag: "eng", who: "Quem mexe no painel?", hot: { x: 276, y: 92, w: 32, h: 40, label: "PAINEL DE GRAVIDADE" }, out: [
+      ["A gravidade volta de uma vez, com todos a três metros do chão.", { all: -1 }],
+      ["O painel dá um choque em {A}.", { a: -1, time: -2 }],
+      ["Tudo o que flutuava cai. Inclusive os corpos. Inclusive em cima de vocês.", { san: -15 }],
+      ["Gravidade restaurada. Vocês atravessam andando.", { time: -1 }],
+      ["O painel reativa as luzes do setor. Dá para ver o caminho inteiro.", { time: 1 }],
+      ["O painel religa o setor e as câmeras mostram uma rota livre até o hangar.", { time: 2, san: 10 }],
+    ]},
+  ]);
+}
+
+/* =========================================================
+   CENA 7 — O MONÓLITO
+   ========================================================= */
+async function sceneMonolith() {
+  setScene("monolith", "Cena 7 · Porão de carga", [{ x: 96, y: 124, w: 124, h: 22, label: "TRIPULANTES AJOELHADOS", desc: "Mortos. Sorrindo para a pedra." }]);
+  SFX.whoosh();
+  const called = pickOne(alive());
+  await narr([
+    "O porão de carga. No centro, preso por correntes, um monólito vermelho da altura de três pessoas.",
+    "Ele pulsa. Como um coração.",
+    "Em volta dele, tripulantes ajoelhados. Mortos. Ainda olhando para cima.",
+    { t: "E então, dentro dos capacetes de todos, ao mesmo tempo, um sussurro:", sfx: "whisper" },
+    { t: `— ${lab(called)}... chegue mais perto...`, cls: "r1" },
+  ]);
+  const inf = alive().filter(c => c.inf);
+  if (inf.length) {
+    const out = [{ t: "O monólito pulsa mais forte. Quem está infectado cai de joelhos, com o nariz sangrando.", cls: "inf" }];
+    inf.forEach(c => hurt(c, -1, out));
+    await narr(out); await checkWipe();
+  }
+  await action("O que vocês fazem com o monólito?", [
+    { label: "Tocar o monólito", tag: "cie", who: `Quem toca o monólito? (ele chama ${lab(called)})`, hot: { x: 136, y: 22, w: 48, h: 90, label: "O MONÓLITO" }, out: [
+      ["{A} encosta a mão e começa a rir. Não para de rir. Bate a cabeça na pedra até ficar em silêncio.", { a: -3, san: -25, sfx: "scare" }],
+      ["Visões de corpos se retorcendo invadem a mente de {A}. O nariz sangra sem parar.", { a: -1, san: -20 }],
+      ["Uma visão: cores piscando numa ordem. Vocês guardam as três primeiras.", { san: -15, seq: "part" }],
+      ["Uma visão clara: as seis cores da ignição da nave de fuga, em ordem.", { san: -10, seq: "full" }],
+      ["A visão mostra as cores da ignição e um atalho até o hangar.", { san: -10, seq: "full", time: 2 }],
+      ["{A} vê tudo: as cores, o caminho e o que o monólito quer. Por algum motivo, ele deixa vocês irem.", { seq: "full", time: 3, san: 10 }],
+    ]},
+    { label: "Destruir o monólito", tag: "min", item: "cortador", who: "Quem ataca o monólito?", hot: { x: 118, y: 112, w: 84, h: 28, label: "BASE E CORRENTES" }, out: [
+      ["Uma onda de luz vermelha atravessa todos. Cada um ouve a própria mãe chamando.", { all: -1, san: -20 }],
+      ["O golpe volta com força e joga {A} contra as correntes.", { a: -2 }],
+      ["A pedra racha, e o grito que sai dela dura minutos.", { san: -10, time: -2, set: { mono: "broken" } }],
+      ["O monólito racha. Os sussurros diminuem.", { time: -2, san: 5, set: { mono: "broken" } }],
+      ["O monólito se parte. Os mortos ajoelhados desabam ao mesmo tempo.", { san: 15, set: { mono: "broken" } }],
+      ["O monólito vira pó. Pela primeira vez desde que acordaram, vocês conseguem pensar direito.", { san: 25, set: { mono: "broken" } }],
+    ]},
+    { label: "Tapar os ouvidos e dar a volta pelo porão", noDice: true, actor: false, hot: { x: 8, y: 60, w: 32, h: 80, label: "SAÍDA LATERAL" },
+      result: [`Vocês andam de costas para a pedra. O sussurro continua chamando ${lab(called)}, cada vez mais carinhoso.`, { san: -10, time: -2 }] },
+  ]);
+}
+
+/* =========================================================
+   CENA 8 — INFECÇÃO
+   ========================================================= */
+async function sceneInfection() {
+  setScene("corridor", "Cena 8 · Túnel de manutenção");
+  S.tint = true;
+  let first = true;
+  for (;;) {
+    const c = alive().find(x => x.inf && !x.turn);
+    if (!c) break;
+    if (first) await narr(["No túnel de manutenção, vocês param para respirar."]);
+    first = false;
+    await narr([
+      { t: `É quando percebem. ${lab(c)} está suando frio. As veias do pescoço estão pretas.`, cls: "inf" },
+      { t: "E os olhos... piscam de lado.", cls: "r1", sfx: "whisper" },
+    ]);
+    const opts = [
+      { label: "Aplicar o soro experimental", need: "soro", noDice: true, actor: false,
+        result: ["O soro queima nas veias de {I}. Depois de um minuto terrível, os olhos voltam ao normal.", { cure: true }] },
+      { label: "Cortar a parte infectada", tag: "med", who: `Quem opera ${lab(c)}?`, filter: x => x !== c, out: [
+        ["O corte vai fundo demais. O sangue não para.", { i: -3 }],
+        ["A infecção sai junto com muito sangue.", { i: -2, cure: true }],
+        ["Corte limpo, mas {I} grita até perder a voz.", { i: -1, cure: true, san: -10 }],
+        ["Corte limpo.", { i: -1, cure: true }],
+        ["Corte preciso. Quase não dói.", { cure: true, san: -5 }],
+        ["Um trabalho perfeito. A infecção sai inteira, ainda se mexendo.", { cure: true }],
+      ]},
+      { label: `Deixar ${lab(c)} para trás`, noDice: true, actor: false,
+        result: [`${lab(c)} pede para não ficar no escuro. Vocês vão embora mesmo assim.`, { san: -20, leave: true }] },
+      { label: `Levar ${lab(c)} assim mesmo`, noDice: true, actor: false,
+        result: [`${lab(c)} jura que está bem. Ninguém acredita, mas ninguém diz nada.`, { turn: true }] },
+    ];
+    const r = await action(`O que vocês fazem com ${lab(c)}?`, opts, { ctx: { inf: c } });
+    if (r.i === 0) S.items = S.items.filter(x => x !== "soro");
+    if (r.i === 2) { const out = []; kill(c, "Deixado no túnel", out, `${lab(c)} FICOU PARA TRÁS.`); await narr(out); await checkWipe(); }
+    if (r.i === 3) c.turn = true;
+    hud();
+  }
+  if (first) await narr(["No túnel de manutenção, vocês param para respirar.", "Ninguém foi mordido. Por enquanto.", { t: "Ao longe, algo imita a voz de um de vocês chamando por ajuda.", sfx: "whisper" }]);
+}
+
+/* =========================================================
+   CENA 9 — HANGAR 3
+   ========================================================= */
+async function sceneHangar() {
+  setScene("hangar", "Cena 9 · Hangar 3", [{ x: 10, y: 94, w: 46, h: 40, label: "CONSOLE", desc: "Mensagem na tela: EVACUAÇÃO CONCLUÍDA. 0 SOBREVIVENTES." }]);
+  SFX.whoosh();
+  await narr(["Hangar 3. A nave de fuga está lá, com as luzes de embarque acesas."]);
+  for (const c of alive().filter(x => x.turn)) {
+    const out = [];
+    const victims = alive().filter(x => x !== c);
+    const v = pickOne(victims);
+    out.push({ t: `${lab(c)} para de andar. Cai de joelhos. Os ossos estalam, um por um.`, cls: "inf" });
+    kill(c, "Transformou-se no hangar", out, `Quando se levanta, não é mais ${lab(c)}.`);
+    out[out.length - 1].sfx = "scare";
+    out.push({ t: v ? `A coisa ataca ${lab(v)} antes de fugir pelo duto.` : "A coisa foge pelo duto.", cls: "r1" });
+    if (v) hurt(v, -1, out);
+    sanity(-20, out);
+    await narr(out); await checkWipe();
+  }
+  await narr([
+    "Entre vocês e a rampa, há algo. Alto demais. Magro demais.",
+    S.flags.rhea === "left" || S.flags.rhea === "lost" ? { t: "Ela ainda veste o traje de Rhea. O crachá balança no peito. — Vocês... prometeram... voltar...", cls: "voice", sfx: "whisper" } : null,
+    "A criatura ainda não viu vocês.",
+  ]);
+  if (S.flags.rhea === "left" || S.flags.rhea === "lost") { const o = []; sanity(-15, o); await narr(o); }
+  await action("Como vocês chegam até a nave?", [
+    { label: "Enfrentar a criatura", tag: "seg", item: "cortador", who: "Quem enfrenta a criatura?", hot: { x: 94, y: 44, w: 48, h: 78, label: "A CRIATURA" }, out: [
+      ["{A} ataca primeiro. A criatura é mais rápida.", { a: -3, san: -15 }],
+      ["A criatura crava as garras em {A} antes de recuar.", { a: -2 }],
+      ["{A} fere a criatura, mas leva um golpe.", { a: -1 }],
+      ["{A} corta um dos membros. A criatura foge para as sombras.", { set: { beastGone: true } }],
+      ["{A} derruba a criatura. Ela não se levanta.", { san: 5, set: { beastGone: true } }],
+      ["{A} corta os membros um a um, como mandam as regras de sobrevivência. Silêncio.", { san: 15, set: { beastGone: true } }],
+    ]},
+    { label: "Alguém serve de isca enquanto os outros correm", tag: "man", who: "Quem serve de isca?", hot: { x: 10, y: 94, w: 46, h: 40, label: "CONSOLE (fazer barulho)" }, out: [
+      ["A criatura alcança {A}. Os outros embarcam ouvindo os gritos.", { a: -3, san: -20 }],
+      ["{A} chega à rampa com o traje em pedaços.", { a: -2 }],
+      ["{A} leva um golpe de raspão, mas embarca.", { a: -1 }],
+      ["{A} desvia no último instante e embarca.", {}],
+      ["{A} leva a criatura para longe e volta por outro caminho.", { set: { beastGone: true } }],
+      ["{A} atrai a criatura para a câmara de descompressão e a ejeta no espaço.", { san: 15, set: { beastGone: true } }],
+    ]},
+    { label: "Correr todos para a nave", actor: false, item: "cartao", hot: { x: 196, y: 82, w: 112, h: 58, label: "NAVE DE FUGA" }, out: [
+      ["A criatura acorda. {R} fica no caminho dela.", { r: -3, san: -15 }],
+      ["Garras alcançam {R} na rampa.", { r: -2 }],
+      ["{R} e {R2} são arranhados na corrida.", { r: -1, r2: -1 }],
+      ["{R} cai na rampa e se machuca, mas embarca.", { r: -1 }],
+      ["Todos embarcam antes que ela perceba.", {}],
+      ["Todos embarcam, e a rampa fecha no focinho da criatura.", { san: 5 }],
+    ]},
+  ]);
+}
+
+/* =========================================================
+   CENA 10 — LANÇAMENTO
+   ========================================================= */
+async function sceneLaunch() {
+  setScene("launch", "Cena 10 · Nave de fuga S-1");
+  let overweight = false;
+  const riders = alive().length + (S.flags.rhea === "joined" ? 1 : 0);
+  await narr([
+    "A escotilha se fecha. Dentro da nave, oito assentos. Oito cintos.",
+    riders > 8 ? { t: `Vocês são ${riders}.`, cls: "r1" } : null,
+  ]);
+  if (riders > 8) {
+    const r = await action("A nave só aguenta oito. Quem fica?", [
+      { label: "Deixar Rhea para trás", noDice: true, actor: false,
+        result: ["Rhea não grita. Só pede para alguém segurar a mão dela até a escotilha fechar. Ninguém consegue.", { san: -20, set: { rhea: "left2" } }] },
+      { label: "Um tripulante se oferece para ficar", noDice: true, who: "Quem se oferece para ficar?",
+        result: ["{A} tira o cinto, entrega para Rhea e sai sem olhar para trás.", { san: -15, stay: true }] },
+      { label: "Decolar com peso extra (arriscado)", noDice: true, actor: false,
+        result: ["Vocês apertam os cintos em dobro. Rhea se encolhe no chão, entre os assentos. A nave vai pesar.", {}] },
+    ]);
+    if (r.i === 1 && r.actor) { const out = []; kill(r.actor, "Ficou na Tártaro", out, `${lab(r.actor)} FICOU NA TÁRTARO.`); await narr(out); await checkWipe(); }
+    if (r.i === 2) overweight = true;
+  }
+  await narr([
+    "O painel de ignição acende: quatro botões. VERMELHO. AZUL. VERDE. AMARELO.",
+    { t: "Do lado de fora, algo começa a bater na escotilha.", sfx: "bang" },
+    S.notes.some(n => /Cantiga|Visão/.test(n.t)) ? { t: "Consultem as NOTAS.", cls: "sys" } : { t: "Vocês não têm a sequência. O painel pode mostrá-la, mas o barulho atrai a coisa lá fora.", cls: "sys" },
+  ]);
+  const ok = await seqPuzzle();
+  if (!ok) { await checkWipe(); }
+  if (overweight) {
+    const pil = alive().find(c => c.tag === "pil");
+    const r = await roll(`Decolagem com peso extra${pil ? ` · ${lab(pil)} pilota` : ""}. Rolem o dado!`, modsFor({ tag: "pil" }, pil || null));
+    S.log.push({ scene: S.sceneName, choice: "Decolar com peso extra", who: pil ? lab(pil) : "grupo", final: r.final });
+    if (r.final === 1) {
+      await narr([{ t: `DADO ${r.final} · DESASTRE!`, cls: "r1" }, { t: "A nave raspa na porta do hangar e se parte ao meio.", cls: "r1", sfx: "death" }]);
+      alive().forEach(c => { c.dead = true; c.hp = 0; c.cause = "Queda da nave de fuga"; });
+      S.flags.rhea = S.flags.rhea === "joined" ? "crash" : S.flags.rhea;
+      hud();
+      await endAllDead("crash"); throw STOP;
+    }
+    await outcome([
+      ["", {}],
+      ["O casco se rompe na saída. {R} é sugado pela brecha antes que ela se feche.", { r: -3 }],
+      ["A nave treme demais. {R} e {R2} batem contra a parede.", { r: -1, r2: -1 }],
+      ["Uma decolagem torta. {R} se machuca.", { r: -1 }],
+      ["A nave geme, mas aguenta.", {}],
+      ["Uma decolagem perfeita, mesmo com peso extra.", { san: 10 }],
+    ][r.final - 1], { roll: r });
+  }
+  await endEscape();
+}
+
+function seqPuzzle() {
+  const id = RUN;
+  return new Promise(res => {
+    S.view = "launch"; S.mode = "seq"; S.seqIn = []; S.seqMsg = null; S.threat = 0;
+    const render = () => {
+      const notes = S.notes.filter(n => /Cantiga|Visão/.test(n.t));
+      elText.className = "clue"; elText.textContent = "Sequência de ignição: 6 cores.";
+      elPanel.innerHTML = `
+        ${notes.length ? `<div class="notes"><ul>${notes.map(n => `<li>${esc(n.t)}</li>`).join("")}</ul></div>` : ""}
+        <div class="dicebar">${COLORS.map((c, i) => `<button class="btn col" style="--c:${CHEX[i]}" type="button" data-c="${i}">${i + 1} ${c}</button>`).join("")}</div>
+        <div class="dicebar"><button class="btn small" id="showBtn" type="button">MOSTRAR SEQUÊNCIA (-1 MIN, PERIGO +1)</button><button class="btn small" id="clrBtn" type="button">APAGAR</button></div>
+        <div class="hint">Cada erro custa 1 minuto e aumenta o PERIGO. No perigo 3, a coisa lá fora força a escotilha. Teclas 1-4.</div>`;
+      elPanel.querySelectorAll("[data-c]").forEach(b => b.addEventListener("click", () => pressColor(+b.dataset.c)));
+      $("showBtn").addEventListener("click", showSeq);
+      $("clrBtn").addEventListener("click", () => { if (!S.seqShowing) { S.seqIn = []; SFX.key(); } });
+    };
+    const threatUp = () => {
+      S.threat++;
+      SFX.bang(); S.bangT = T; S.shake = 6;
+      if (S.threat >= 3) {
+        const v = pickOne(alive());
+        const out = [];
+        if (v) hurt(v, -1, out);
+        sanity(-10);
+        S.threat = 1;
+        S.banner = { t: "A ESCOTILHA CEDE!", until: T + 2500 };
+        SFX.scare(); S.scareUntil = T + 140;
+        elText.className = "r1"; elText.textContent = out.map(o => o.t).join(" ") || "Garras atravessam a escotilha!";
+        if (out.some(o => o.sfx === "death")) SFX.death();
+        hud();
+        if (alive().length === 0) { S.mode = "busy"; if (live(id)) res(false); return true; }
+      }
+      return false;
+    };
+    const pressColor = c => {
+      if (S.mode !== "seq" || S.seqShowing) return;
+      S.lit = c; S.litUntil = T + 220; SFX.color(c);
+      S.seqIn.push(c);
+      if (S.seqIn.length < 6) return;
+      if (S.seqIn.every((v, i) => v === S.seq[i])) {
+        S.mode = "busy"; S.seqMsg = "ok"; SFX.success();
+        S.log.push({ scene: S.sceneName, choice: "Sequência de ignição correta", who: "grupo", final: null });
+        setTimeout(() => { if (live(id)) res(true); }, 1500);
+        return;
+      }
+      S.seqMsg = "err"; SFX.error(); spend(-1); hud();
+      const wiped = threatUp();
+      setTimeout(() => { S.seqMsg = null; S.seqIn = []; if (!wiped) render(); }, 1000);
+    };
+    const showSeq = () => {
+      if (S.mode !== "seq" || S.seqShowing) return;
+      spend(-1); hud();
+      if (threatUp()) return;
+      S.seqShowing = true; S.seqIn = [];
+      S.seq.forEach((c, i) => setTimeout(() => { S.lit = c; S.litUntil = T + 380; SFX.color(c); }, 700 + i * 520));
+      setTimeout(() => { S.seqShowing = false; }, 700 + S.seq.length * 520 + 200);
+    };
+    S.colorFn = pressColor;
+    render();
+  });
+}
+
+/* =========================================================
+   FINAIS
+   ========================================================= */
+async function endEscape() {
+  S.over = true; S.timerOn = false;
+  S.view = "ending"; S.endKind = "escape"; S.endT0 = performance.now(); S.fade = 1;
+  elWhere.textContent = "Fase 1 · Fuga";
+  SFX.door();
+  const a = alive(), deadList = S.crew.filter(c => c.dead);
+  await narr([
+    "Os motores rugem. A nave de fuga atravessa as portas do hangar e mergulha no escuro.",
+    "Atrás de vocês, a CSV TÁRTARO se desfaz numa explosão branca e silenciosa.",
+    a.length === 8 ? { t: "Oito tripulantes acordaram naquela cela. Oito saíram.", cls: "r6" } : { t: `${a.length} de 8 sobreviveram.`, cls: a.length > 4 ? "r5" : "r2" },
+    deadList.length ? { t: "Ninguém vai esquecer: " + deadList.map(lab).join(", ") + ".", cls: "fx" } : null,
+    S.flags.rhea === "joined" ? { t: "Rhea chora no fundo da nave. De alívio, vocês esperam.", cls: "voice" } : null,
+    "No painel, uma luz começa a piscar.",
+    { t: "SINAL DESCONHECIDO DETECTADO. ORIGEM: A BORDO.", cls: "r1", sfx: "alarm" },
+  ]);
+  summary();
+}
+async function endAllDead(kind) {
+  S.over = true; S.timerOn = false;
+  S.view = "ending"; S.endKind = "drift"; S.endT0 = performance.now(); S.fade = 1;
+  elWhere.textContent = "Fase 1 · Silêncio";
+  await narr(kind === "crash" ? [
+    { t: "O fogo se espalha pelo hangar. Depois, só metal retorcido.", cls: "r1" },
+    "Minutos depois, o reator faz o resto.",
+    { t: "NINGUÉM SAIU DA TÁRTARO.", cls: "r1" },
+  ] : [
+    "Ninguém responde no rádio.",
+    "A CSV TÁRTARO continua à deriva, com as luzes de emergência piscando para ninguém.",
+    { t: "Em algum lugar do porão, o monólito pulsa. Satisfeito.", cls: "r1", sfx: "whisper" },
+    { t: "NINGUÉM SAIU DA TÁRTARO.", cls: "r1" },
+  ]);
+  summary();
+}
+function reactorEnd() {
+  if (S.over) return;
+  RUN++; S.over = true; S.timerOn = false; S.dice = null;
+  clearInterval(typer); typer = null;
+  const id = RUN;
+  alive().forEach(c => { c.dead = true; c.hp = 0; c.cause = "Explosão do reator"; });
+  hud();
+  S.view = "ending"; S.endKind = "boom"; S.endT0 = performance.now(); S.flash = { c: "#ffffff", a: 1 };
+  SFX.death(); noise(3, 0.6, 3000, 0, 40);
+  elWhere.textContent = "Fase 1 · Detonação";
+  narr([
+    { t: "DETONAÇÃO DO NÚCLEO.", cls: "r1" },
+    "Por um instante, a nave inteira fica branca.",
+    "Depois, não há mais nave. Nem tripulação. Nem sinal.",
+    { t: "O TEMPO ACABOU. NINGUÉM SAIU DA TÁRTARO.", cls: "r1" },
+  ]).then(() => { if (live(id)) summary(); });
+}
+
+function summary() {
+  S.mode = "end";
+  const a = alive().length;
+  const rank = a === 8 ? "TODOS VIVOS" : a >= 5 ? "SOBREVIVENTES" : a >= 2 ? "POUCOS RESTARAM" : a === 1 ? "ÚLTIMO SOBREVIVENTE" : "NINGUÉM SAIU DA TÁRTARO";
+  const s = Math.max(0, Math.ceil(S.timeLeft / 1000));
+  elText.className = a ? "r6" : "r1";
+  elText.textContent = a ? "FIM DA FASE 1. CONTINUA..." : "FIM DA FASE 1.";
+  elPanel.innerHTML = `
+    <div class="rank ${a ? "" : "dead"}">${a}/8 VIVOS · ${rank}</div>
+    <div class="summary">
+      <div><span class="k">Tempo restante:</span> ${String(s / 60 | 0).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}</div>
+      <div><span class="k">Mente:</span> ${S.san}%</div>
+      <div><span class="k">Códigos negados:</span> ${S.wrong}</div>
+      <div><span class="k">Rhea:</span> ${{ joined: "sobreviveu com vocês", left: "abandonada", left2: "deixada no hangar", dead: "morta na porta", lost: "transformada", crash: "morreu na queda" }[S.flags.rhea] || "—"}</div>
+    </div>
+    <div class="logwrap"><table class="log">${S.crew.map(c => `<tr><td class="n">Nº${c.n}</td><td>${esc(c.name || c.role)}</td><td class="${c.dead ? "dead" : "alive"}">${c.dead ? "MORTO · " + esc(c.cause) : "VIVO · vida " + c.hp + "/3"}</td></tr>`).join("")}</table></div>
+    <div class="logwrap"><table class="log">${S.log.map(l => `<tr><td class="n">${esc(l.scene.split("·")[0].trim())}</td><td>${esc(l.choice)}</td><td>${esc(l.who)}</td><td class="n">${l.final ? "DADO " + l.final : ""}</td></tr>`).join("")}</table></div>
+    <div class="dicebar"><button class="btn" id="againBtn" type="button">► JOGAR NOVAMENTE</button></div>`;
+  $("againBtn").addEventListener("click", setup);
+}
+
+/* =========================================================
+   HUD
+   ========================================================= */
+function hud() {
+  const b = $("bsan");
+  b.querySelector("i").style.width = S.san + "%";
+  b.classList.toggle("low", S.san < 20);
+  $("nsan").textContent = S.san;
+  $("inv").textContent = [S.doses ? `DOSES: ${S.doses}` : "", S.items.length ? "ITENS: " + S.items.map(i => ITEMS[i]).join(", ") : ""].filter(Boolean).join(" · ");
+  $("bonus").textContent = S.nextBonus ? "+1 NO PRÓXIMO DADO" : (S.san < 20 ? "PÂNICO: -1" : "");
+  $("notesBtn").textContent = `NOTAS (${S.notes.length})`;
+  $("crew").innerHTML = S.crew.map(c => `
+    <div class="chip ${c.dead ? "dead" : ""} ${c.inf ? "inf" : ""} ${c.hp === 2 ? "hurt" : ""} ${c.hp === 1 ? "crit" : ""}" style="--c:${c.color}" title="Nº${c.n} · ${c.role}">
+      <span class="n">${c.n}</span>
+      <span class="hp">${[0, 1, 2].map(k => `<i class="${k < c.hp ? "" : "off"}"></i>`).join("")}</span>
+      <span class="nm">${c.dead ? "MORTO" : c.inf ? "INFECTADO" : esc(c.name || c.role)}</span>
+    </div>`).join("") + (S.flags.rhea === "joined" ? `<div class="chip npc" style="--c:#aab7c4"><span class="n">NPC</span><span class="nm">RHEA</span></div>` : "");
+  $("notesList").innerHTML = S.notes.length ? S.notes.map(n => `<li>${esc(n.t)}</li>`).join("") : "<li>Nada anotado ainda.</li>";
+  timerText();
+}
+
+/* =========================================================
+   INÍCIO
+   ========================================================= */
+function setup() {
+  RUN++;
   initAudio(); startAmbient();
-  document.getElementById("title").hidden = true;
-  resetState(); S.mode = "narration"; hud();
-  goScene(0);
+  $("title").hidden = true;
+  const keepNames = S.names;
+  resetState();
+  S.names = keepNames;
+  S.mode = "setup"; S.view = "title";
+  elWhere.textContent = "CSV TÁRTARO · REGISTRO DA TRIPULAÇÃO";
+  elText.className = ""; elText.textContent = "Quem está a bordo? Cada jogador é um número.";
+  elNext.hidden = true;
+  elPanel.innerHTML = `
+    <div class="setup">
+      <div class="names">${ROLES.map(r => `<label class="nm" style="--c:${r.color}" for="nm${r.n}">Nº${r.n} · ${r.role}<input id="nm${r.n}" maxlength="14" autocomplete="off" value="${esc(S.names[r.n - 1] || "")}" placeholder="Nome do jogador"></label>`).join("")}</div>
+      <div class="setrow"><label for="mins">TEMPO ATÉ A DETONAÇÃO</label>
+        <select id="mins">${[30, 45, 60, 90].map(m => `<option value="${m}" ${m === S.minutes ? "selected" : ""}>${m} minutos</option>`).join("")}</select></div>
+      <div class="hint">Cada função dá +1 no dado quando combina com a ação. O relógio é real: PAUSAR congela o reator.</div>
+      <div class="dicebar"><button class="btn" id="goBtn" type="button">► ACORDAR A TRIPULAÇÃO</button></div>
+    </div>`;
+  hud();
+  $("goBtn").addEventListener("click", () => {
+    S.names = ROLES.map(r => $("nm" + r.n).value.trim());
+    saveNames(S.names);
+    S.minutes = +$("mins").value || 60;
+    resetState();
+    hud();
+    runGame();
+  });
+}
+async function runGame() {
+  const id = RUN;
+  try {
+    await sceneCell();
+    await sceneCorridor();
+    await sceneSealed();
+    await sceneMedbay();
+    await sceneAirlock();
+    await sceneVoid();
+    await sceneMonolith();
+    await sceneInfection();
+    await sceneHangar();
+    await sceneLaunch();
+  } catch (e) {
+    if (e !== STOP && live(id)) console.error(e);
+  }
 }
 
 /* ---------- Entrada ---------- */
 function toCanvas(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
 function inside(p, h) { return p.x >= h.x && p.x < h.x + h.w && p.y >= h.y && p.y < h.y + h.h; }
 function hotAt(p) {
-  if (S.view === "keypad" || !SCENES[S.scene] || SCENES[S.scene].view !== S.view) return null;
-  const sc = SCENES[S.scene];
-  for (let i = 0; i < sc.options.length; i++) { const h = sc.options[i].hot; if (h && inside(p, h)) return { ...h, opt: i }; }
-  for (const h of sc.extra || []) if (inside(p, h)) return h;
+  if (S.mode !== "choice" || !S.opts) return null;
+  for (let i = 0; i < S.opts.length; i++) { const h = S.opts[i].hot; if (h && !S.opts[i].disabled && inside(p, h)) return { ...h, opt: i }; }
+  for (const h of S.extraHots || []) if (inside(p, h)) return h;
   return null;
 }
 cv.addEventListener("mousemove", e => {
-  const p = toCanvas(e);
+  const p = toCanvas(e); S.mouse = p;
   if (S.mode === "keypad") { cv.style.cursor = KEYS.some(k => inside(p, k)) ? "pointer" : "default"; return; }
-  if (S.mode !== "choice") { S.hover = null; cv.style.cursor = "default"; return; }
+  if (S.mode === "seq") { cv.style.cursor = LBTNS.some(k => inside(p, k)) ? "pointer" : "default"; return; }
   S.hover = hotAt(p);
-  cv.style.cursor = S.hover ? "pointer" : "default";
+  cv.style.cursor = S.hover ? "pointer" : "crosshair";
   if (S.hover && S.hover.opt !== undefined) setSel(S.hover.opt);
 });
 cv.addEventListener("mouseleave", () => { S.hover = null; });
 cv.addEventListener("click", e => {
-  const p = toCanvas(e);
+  const p = toCanvas(e); S.mouse = p;
   if (S.mode === "keypad") { const k = KEYS.find(q => inside(p, q)); if (k) pressKey(k.k); return; }
+  if (S.mode === "seq") { const b = LBTNS.find(q => inside(p, q)); if (b) S.colorFn(b.c); return; }
   if (S.mode === "narration") return advance();
-  if (S.mode === "dice") return roll();
+  if (S.mode === "dice") return S.rollFn();
   if (S.mode === "choice") {
     const h = hotAt(p);
     if (!h) return;
-    if (h.opt !== undefined) pick(h.opt);
-    else { S.label = h.desc; S.labelUntil = T + 3000; SFX.move(); }
+    if (h.opt !== undefined) S.chooseFn(h.opt);
+    else { S.label = h.desc; S.labelUntil = T + 3500; SFX.move(); }
   }
 });
-document.getElementById("box").addEventListener("click", e => { if (e.target.closest("button")) return; advance(); });
-document.getElementById("startBtn").addEventListener("click", start);
-document.getElementById("muteBtn").addEventListener("click", e => {
+$("box").addEventListener("click", e => { if (e.target.closest("button, input, select, label")) return; advance(); });
+$("startBtn").addEventListener("click", setup);
+$("notesBtn").addEventListener("click", () => { $("notesPop").hidden = !$("notesPop").hidden; });
+$("notesPop").addEventListener("click", () => { $("notesPop").hidden = true; });
+$("pauseBtn").addEventListener("click", e => {
+  if (!S.timerOn) return;
+  S.paused = !S.paused;
+  e.currentTarget.textContent = S.paused ? "CONTINUAR" : "PAUSAR";
+  e.currentTarget.classList.toggle("on", S.paused);
+  timerText();
+});
+$("muteBtn").addEventListener("click", e => {
   muted = !muted; if (master) master.gain.value = muted ? 0 : 0.55;
   e.currentTarget.textContent = muted ? "SOM: OFF" : "SOM: ON";
 });
-document.getElementById("fsBtn").addEventListener("click", () => {
-  const el = document.getElementById("game");
+$("fsBtn").addEventListener("click", () => {
+  const el = $("game");
   try { if (document.fullscreenElement) document.exitFullscreen(); else el.requestFullscreen().catch(() => {}); } catch (_) {}
 });
 document.addEventListener("keydown", e => {
+  if (e.target.closest && e.target.closest("input, select")) return;
   const k = e.key;
-  if (S.mode === "title") { if (k === "Enter" || k === " ") { e.preventDefault(); start(); } return; }
+  if (S.mode === "title") { if (k === "Enter" || k === " ") { e.preventDefault(); setup(); } return; }
   if (S.mode === "narration" && (k === " " || k === "Enter")) { e.preventDefault(); advance(); return; }
   if (S.mode === "choice") {
-    const n = SCENES[S.scene].options.length;
+    const n = S.opts ? S.opts.length : 0;
     if (k === "ArrowDown") { e.preventDefault(); setSel((S.sel + 1) % n); }
     else if (k === "ArrowUp") { e.preventDefault(); setSel((S.sel + n - 1) % n); }
-    else if (k === "Enter" || k === " ") { e.preventDefault(); pick(S.sel); }
-    else if (/^[1-9]$/.test(k) && +k <= n) pick(+k - 1);
+    else if (k === "Enter" || k === " ") { e.preventDefault(); S.chooseFn(S.sel); }
+    else if (/^[1-9]$/.test(k) && +k <= n) S.chooseFn(+k - 1);
     return;
   }
+  if (S.mode === "pick" && /^[1-8]$/.test(k)) { S.pickFn(+k); return; }
   if (S.mode === "dice") {
-    if (k === " " || k === "Enter") { e.preventDefault(); roll(); }
-    else if (/^[1-6]$/.test(k)) roll(+k);
+    if (k === " " || k === "Enter") { e.preventDefault(); S.rollFn(); }
+    else if (/^[1-6]$/.test(k)) S.rollFn(+k);
     return;
   }
   if (S.mode === "keypad") {
     if (/^[0-9]$/.test(k)) pressKey(k);
     else if (k === "Enter") { e.preventDefault(); pressKey("OK"); }
-    else if (k === "Backspace") { e.preventDefault(); backspace(); }
-    else if (k === "Escape" || k === "Delete") pressKey("C");
+    else if (k === "Backspace") { e.preventDefault(); if (!S.keypadLocked) { S.entry = S.entry.slice(0, -1); SFX.key(); } }
+    else if (k === "Escape") S.keypadDone(false);
+    return;
   }
+  if (S.mode === "seq" && /^[1-4]$/.test(k)) S.colorFn(+k - 1);
 });
 
+resetState();
 hud();
 requestAnimationFrame(frame);
 })();
