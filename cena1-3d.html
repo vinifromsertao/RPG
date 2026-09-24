@@ -1182,7 +1182,7 @@ function initThree() {
   if (!window.THREE) return;
   try {
     const r = new THREE.WebGLRenderer({ alpha: true, antialias: false, preserveDrawingBuffer: true });
-    r.setPixelRatio(1); r.setSize(PS1_W, PS1_H, false);
+    r.setPixelRatio(1); r.setSize(PS1.on ? PS1_W : CW, PS1.on ? PS1_H : CH, false);
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.BasicShadowMap;
     r.outputEncoding = THREE.sRGBEncoding; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.8;
     const scene = new THREE.Scene();
@@ -1243,8 +1243,19 @@ function useGLB(gltf, label) {
   if (G3.glb) G3.ch.root.remove(G3.glb.holder);
   G3.ch.root.add(holder);
   G3.ch.body.visible = false;
-  G3.glb = { holder, turn, height: GLB_HEIGHT };
-  addEntry({ t: `Modelo 3D carregado: ${label}. Use GIRAR se ele estiver de costas.`, cls: "sys good" });
+  G3.glb = { holder, turn, height: GLB_HEIGHT, head: model.getObjectByName("Head") || null };
+  model.traverse(o => { if (o.isSkinnedMesh) o.frustumCulled = false; });
+  // animações do arquivo: Idle parado, Walk andando
+  if (gltf.animations && gltf.animations.length) {
+    const mixer = new THREE.AnimationMixer(model);
+    const clip = n => gltf.animations.find(a => a.name.toLowerCase() === n.toLowerCase());
+    const idle = clip("Idle") || gltf.animations[0];
+    const walk = clip("Walk") || clip("Walk_Forward") || gltf.animations[0];
+    const A = { idle: mixer.clipAction(idle), walk: mixer.clipAction(walk) };
+    A.idle.play(); A.walk.play(); A.walk.setEffectiveWeight(0);
+    Object.assign(G3.glb, { mixer, A, cur: "idle", acc: 0 });
+  }
+  if (!/assets\/personagem/.test(label)) addEntry({ t: `Modelo 3D carregado: ${label}${G3.glb.mixer ? " (com animações)" : ""}. Use GIRAR se ele estiver de costas.`, cls: "sys good" });
   $("mBtn").textContent = "GIRAR";
 }
 function loadGLBBuffer(buf, label) {
@@ -1311,7 +1322,13 @@ function render3D(dt, beam, flick, moving) {
   G3.look += (look - G3.look) * Math.min(1, dt / 200);
   ch.neck.rotation.y = G3.look * 0.6; ch.head.rotation.y = G3.look * 0.4;
   ch.head.rotation.x = -0.05 + (S.hp === 1 ? 0.2 : 0) + wk * Math.sin(G3.phase * 2) * 0.03;
-  if (G3.glb) {
+  if (G3.glb && G3.glb.mixer) {
+    const gb = G3.glb, want = moving ? "walk" : "idle";
+    if (want !== gb.cur) { gb.A[want].reset().setEffectiveWeight(1).fadeIn(0.25); gb.A[gb.cur].fadeOut(0.25); gb.cur = want; }
+    gb.acc += dt;
+    const step = PS1.on ? 66 : 0;                      // no modo PS1, a animação anda a ~15 quadros por segundo
+    if (gb.acc >= step) { gb.mixer.update(gb.acc / 1000); gb.acc = 0; }
+  } else if (G3.glb) {
     const hb = G3.glb.holder;
     hb.position.y = wk * Math.abs(c) * 0.04;
     hb.rotation.x = wk * 0.07 + (1 - wk) * Math.sin(tt * 1.6) * 0.006 + (S.hp === 1 ? 0.06 : 0);
@@ -1329,8 +1346,10 @@ function render3D(dt, beam, flick, moving) {
   if (T > portraitAt) {
     portraitAt = T + 90;
     const hp = new THREE.Vector3();
-    if (G3.glb) { ch.root.getWorldPosition(hp); hp.y += G3.glb.height - 0.1; } else { ch.head.getWorldPosition(hp); hp.y += 0.03; }
-    const fwd = new THREE.Vector3(Math.sin(ch.root.rotation.y + ch.neck.rotation.y), 0, Math.cos(ch.root.rotation.y + ch.neck.rotation.y));
+    if (G3.glb && G3.glb.head) { G3.glb.head.getWorldPosition(hp); hp.y += 0.06; }
+    else if (G3.glb) { ch.root.getWorldPosition(hp); hp.y += G3.glb.height - 0.1; } else { ch.head.getWorldPosition(hp); hp.y += 0.03; }
+    const yawP = ch.root.rotation.y + (G3.glb ? G3.glb.turn.rotation.y : ch.neck.rotation.y);
+    const fwd = new THREE.Vector3(Math.sin(yawP), 0, Math.cos(yawP));
     G3.pcam.position.copy(hp).addScaledVector(fwd, 1.25).add(new THREE.Vector3(0.12, 0.04, 0));
     G3.pcam.lookAt(hp.x, hp.y - 0.06, hp.z);
     G3.pr.render(G3.scene, G3.pcam);
@@ -1521,6 +1540,7 @@ $("sBtn").addEventListener("click", e => { muted = !muted; if (master) master.ga
 $("psBtn").classList.toggle("on", PS1.on);
 $("psBtn").addEventListener("click", e => {
   PS1.on = !PS1.on; e.currentTarget.classList.toggle("on", PS1.on);
+  if (G3.ok) G3.r.setSize(PS1.on ? PS1_W : CW, PS1.on ? PS1_H : CH, false);
   try { localStorage.setItem("sinal-ps1", PS1.on ? "1" : "0"); } catch (_) {}
 });
 $("mBtn").addEventListener("click", () => {
