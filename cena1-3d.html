@@ -1264,7 +1264,15 @@ function loadGLBBuffer(buf, label) {
 }
 function tryDefaultGLB() {
   if (!G3.ok || !THREE.GLTFLoader) return;
-  fetch("assets/personagem.glb").then(r => r.ok ? r.arrayBuffer() : null).then(b => { if (b) loadGLBBuffer(b, "assets/personagem.glb"); }).catch(() => {});
+  // 1º: o .glb direto (repositório); 2º: a cópia em base64 dentro de .json (link publicado)
+  fetch("assets/personagem.glb").then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
+    .then(buf => loadGLBBuffer(buf, "assets/personagem.glb"))
+    .catch(() => fetch("assets/personagem.glb.json").then(r => r.ok ? r.json() : null).then(j => {
+      if (!j || !j.glb) return;
+      const bin = atob(j.glb), u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      loadGLBBuffer(u8.buffer, "assets/personagem.glb.json");
+    })).catch(() => {});
 }
 
 // ponto da tela -> ponto do mundo numa altura h
