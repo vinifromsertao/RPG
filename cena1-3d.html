@@ -148,6 +148,8 @@
         <button id="pBtn" type="button">PAUSAR</button>
         <button id="sBtn" type="button">SOM</button>
         <button id="fBtn" type="button">TELA CHEIA</button>
+        <button id="mBtn" type="button" title="Carregar um personagem .glb (ou arraste o arquivo para a cena)">MODELO 3D</button>
+        <input id="glbFile" type="file" accept=".glb,.gltf,model/gltf-binary" hidden>
       </div>
     </div>
     <div id="logInner" aria-live="polite"></div>
@@ -164,7 +166,8 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 (() => {
 "use strict";
@@ -1210,6 +1213,34 @@ function initThree() {
     G3.term.position.copy(worldAt(...P(345, 440), 1.05)).add(new THREE.Vector3(0.35, 0, 0.35));
   } catch (e) { console.error(e); G3.ok = false; }
 }
+/* ---------- Modelo externo (.glb gerado no Higgsfield) ---------- */
+const GLB_HEIGHT = 1.78;
+function useGLB(gltf, label) {
+  if (!G3.ok) return;
+  const model = gltf.scene;
+  model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; if (o.material) { o.material.side = THREE.FrontSide; if (o.material.map) o.material.map.encoding = THREE.sRGBEncoding; } } });
+  const box = new THREE.Box3().setFromObject(model), size = new THREE.Vector3(), ctr = new THREE.Vector3();
+  box.getSize(size); box.getCenter(ctr);
+  const k = GLB_HEIGHT / Math.max(size.y, 1e-3);
+  const holder = new THREE.Group(), turn = new THREE.Group();
+  model.position.set(-ctr.x, -box.min.y, -ctr.z);
+  turn.add(model); turn.scale.setScalar(k); holder.add(turn);
+  if (G3.glb) G3.ch.root.remove(G3.glb.holder);
+  G3.ch.root.add(holder);
+  G3.ch.body.visible = false;
+  G3.glb = { holder, turn, height: GLB_HEIGHT };
+  addEntry({ t: `Modelo 3D carregado: ${label}. Use GIRAR se ele estiver de costas.`, cls: "sys good" });
+  $("mBtn").textContent = "GIRAR";
+}
+function loadGLBBuffer(buf, label) {
+  if (!G3.ok || !THREE.GLTFLoader) { addEntry({ t: "Não foi possível carregar o modelo: o 3D não está disponível neste navegador.", cls: "sys bad" }); return; }
+  new THREE.GLTFLoader().parse(buf, "", g => useGLB(g, label), e => addEntry({ t: "O arquivo não parece ser um modelo .glb válido.", cls: "sys bad" }));
+}
+function tryDefaultGLB() {
+  if (!G3.ok || !THREE.GLTFLoader) return;
+  fetch("assets/personagem.glb").then(r => r.ok ? r.arrayBuffer() : null).then(b => { if (b) loadGLBBuffer(b, "assets/personagem.glb"); }).catch(() => {});
+}
+
 // ponto da tela -> ponto do mundo numa altura h
 function worldAt(sx, sy, h = 0) {
   const ndc = new THREE.Vector2(sx / CW * 2 - 1, -(sy / CH * 2 - 1));
@@ -1262,6 +1293,13 @@ function render3D(dt, beam, flick, moving) {
   G3.look += (look - G3.look) * Math.min(1, dt / 200);
   ch.neck.rotation.y = G3.look * 0.6; ch.head.rotation.y = G3.look * 0.4;
   ch.head.rotation.x = -0.05 + (S.hp === 1 ? 0.2 : 0) + wk * Math.sin(G3.phase * 2) * 0.03;
+  if (G3.glb) {
+    const hb = G3.glb.holder;
+    hb.position.y = wk * Math.abs(c) * 0.04;
+    hb.rotation.x = wk * 0.07 + (1 - wk) * Math.sin(tt * 1.6) * 0.006 + (S.hp === 1 ? 0.06 : 0);
+    hb.rotation.z = wk * s * 0.045;
+    hb.scale.set(1, 1 + (1 - wk) * Math.sin(tt * 1.6) * 0.006, 1);
+  }
   // barra de vida nas costas
   ch.rigLights.forEach((m, k) => { m.visible = k < Math.ceil(S.hp / 3 * 5); });
   const hpCol = S.hp >= 3 ? 0x5fe3f2 : S.hp === 2 ? 0xffd25a : 0xff3b30;
@@ -1272,7 +1310,8 @@ function render3D(dt, beam, flick, moving) {
   G3.r.render(G3.scene, G3.cam);
   if (T > portraitAt) {
     portraitAt = T + 90;
-    const hp = new THREE.Vector3(); ch.head.getWorldPosition(hp); hp.y += 0.03;
+    const hp = new THREE.Vector3();
+    if (G3.glb) { ch.root.getWorldPosition(hp); hp.y += G3.glb.height - 0.1; } else { ch.head.getWorldPosition(hp); hp.y += 0.03; }
     const fwd = new THREE.Vector3(Math.sin(ch.root.rotation.y + ch.neck.rotation.y), 0, Math.cos(ch.root.rotation.y + ch.neck.rotation.y));
     G3.pcam.position.copy(hp).addScaledVector(fwd, 0.85).add(new THREE.Vector3(0.12, 0.04, 0));
     G3.pcam.lookAt(hp.x, hp.y - 0.06, hp.z);
@@ -1460,6 +1499,13 @@ $("jBtn").addEventListener("click", () => { $("journal").hidden = !$("journal").
 $("journal").addEventListener("click", () => { $("journal").hidden = true; });
 $("pBtn").addEventListener("click", e => { if (!S.timerOn) return; S.paused = !S.paused; e.currentTarget.textContent = S.paused ? "CONTINUAR" : "PAUSAR"; e.currentTarget.classList.toggle("on", S.paused); });
 $("sBtn").addEventListener("click", e => { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.6; e.currentTarget.classList.toggle("on", muted); e.currentTarget.textContent = muted ? "SEM SOM" : "SOM"; });
+$("mBtn").addEventListener("click", () => {
+  if (G3.glb) { G3.glb.turn.rotation.y += Math.PI / 2; return; }
+  $("glbFile").click();
+});
+$("glbFile").addEventListener("change", e => { const f = e.target.files[0]; if (f) f.arrayBuffer().then(b => loadGLBBuffer(b, f.name)); });
+$("scene").addEventListener("dragover", e => e.preventDefault());
+$("scene").addEventListener("drop", e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && /\.(glb|gltf)$/i.test(f.name)) f.arrayBuffer().then(b => loadGLBBuffer(b, f.name)); });
 $("fBtn").addEventListener("click", () => { try { if (document.fullscreenElement) document.exitFullscreen(); else $("game").requestFullscreen().catch(() => {}); } catch (_) {} });
 
 async function startGame() {
@@ -1490,6 +1536,7 @@ async function boot() {
   resetState();
   ART = { room: bakeRoom({}), spr: bakeSprites(), keypad: bakeKeypad(), scare: bakeScare(), roomOld: null };
   initThree();
+  tryDefaultGLB();
   if (!G3.ok) $("portrait").getContext("2d").drawImage(bakePortrait(), 0, 0);
   S.mode = "title"; S.fade = 0;
   hud();
