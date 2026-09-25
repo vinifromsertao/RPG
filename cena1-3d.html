@@ -289,20 +289,18 @@ function drawOverlays(g, f) {
   // arrasto de sangue até o corpo
   for (let k = 0; k < 30; k++) { const p = k / 30, [x, y] = P(620 + p * 340, 700 + p * 50 + Math.sin(k) * 4); g.fillStyle = "rgba(70,14,10,.55)"; g.beginPath(); g.ellipse(x, y, 16 - p * 6, 6, 0.4, 0, 7); g.fill(); }
   // poça e corpo do engenheiro
-  const [cx, cy] = P(1010, 770);
+  const [cx, cy] = P(1060, 790);
   onFloor(g, cx, cy, g => {
     g.fillStyle = "rgba(62,10,7,.92)"; g.beginPath(); g.ellipse(50, 10, 140, 80, 0.2, 0, 7); g.fill();
     g.fillStyle = "rgba(96,20,13,.8)"; g.beginPath(); g.ellipse(70, 12, 80, 44, 0.2, 0, 7); g.fill();
   });
-  g.save(); g.translate(cx, cy); g.rotate(0.43); g.scale(1, 0.62); drawBody2(g, 190); g.restore();
   // armário aberto e o corpo que caiu dele
   if (f.lockerOpen) {
     poly(g, [[648, 238], [726, 205], [728, 470], [652, 508]].map(p => P(...p)), "#050606");
     poly(g, [[648, 238], [568, 280], [570, 548], [652, 508]].map(p => P(...p)), "#4d554f", "#262b28", 2);
     poly(g, [[585, 300], [635, 274], [636, 330], [586, 356]].map(p => P(...p)), "#3a413c");
-    const [lx, ly] = P(640, 600);
+    const [lx, ly] = P(760, 640);
     onFloor(g, lx, ly, g => { g.fillStyle = "rgba(62,10,7,.8)"; g.beginPath(); g.ellipse(0, 0, 80, 44, 0, 0, 7); g.fill(); });
-    g.save(); g.translate(lx, ly); g.rotate(-0.33); g.scale(1, 0.62); drawBody2(g, 140); g.restore();
   }
 }
 function bakeRoom(f) {
@@ -562,6 +560,7 @@ function resetState() {
     flags: {}, pos: { x: 640, y: 600 }, target: null, arrive: null, facing: { back: false, flip: false }, walkPh: 0, stepAt: 0,
     hover: null, pressed: null, pressedUntil: 0, hand: { x: 900, y: 800, tx: 900, ty: 800 },
     shake: 0, flash: null, scareUntil: 0, fade: 1, bangT: -9999, doorT: 0, idleVoiceAt: 0,
+    pose: null, flinchAt: 0, punchAt: 0, pokeAt: 0,
   });
 }
 
@@ -572,7 +571,7 @@ const HOT = {
   writing:  { name: "Escrita na parede", label: "ESCRITA NA PAREDE", sub: "Letras ainda úmidas.", r: R8(118, 205, 215, 110), stand: P(470, 760) },
   terminal: { name: "Terminal", label: "TERMINAL", sub: "A tela pisca sozinha.", r: R8(225, 320, 305, 215), stand: P(560, 700) },
   locker:   { name: "Armário de metal", label: "ARMÁRIO DE METAL", sub: "Tem algo pesado lá dentro.", r: R8(580, 185, 155, 335), stand: P(665, 590) },
-  corpse:   { name: "Corpo do engenheiro", label: "CORPO DO ENGENHEIRO", sub: "Morto há pouco tempo. Talvez.", r: R8(880, 690, 290, 150), stand: P(840, 700) },
+  corpse:   { name: "Corpo do engenheiro", label: "CORPO DO ENGENHEIRO", sub: "Morto há pouco tempo. Talvez.", r: R8(920, 705, 320, 150), stand: P(850, 705) },
   keypad:   { name: "Teclado da porta", label: "TECLADO DA PORTA", sub: "Quatro dígitos. Nenhuma dica.", r: R8(1348, 405, 80, 122), stand: P(1335, 730) },
   door:     { name: "Porta blindada C-03", label: "PORTA BLINDADA C-03", sub: "Do outro lado, silêncio. Silêncio demais.", r: R8(1080, 175, 250, 480), stand: P(1180, 660) },
   vent:     { name: "Duto de ventilação", label: "DUTO DE VENTILAÇÃO", sub: "A grade foi arranhada por dentro.", r: R8(450, 105, 125, 135), stand: P(600, 610) },
@@ -789,10 +788,12 @@ async function interact(k) {
   if (k === "dose") { S.doses--; addEntry({ t: "A agulha entra fundo. O frio sobe pelo braço e, por um instante, a dor some." }); await fx({ hp: 1 }); return; }
   if (k === "keypad") return keypadMenu();
   if (["writing", "terminal", "locker", "corpse"].includes(k) && again) {
+    S.pose = k === "corpse" ? "crouch" : "look";
     await say([{ t: CLUE_INTRO[k], cls: "sys" }, ...addClues(k)]);
     return;
   }
   S.seen.add(k);
+  S.pose = { writing: "look", terminal: "look", vent: "look", door: "listen", beacon: "look" }[k] || null;
   if (k === "writing") {
     await say([
       "Letras de sangue na parede, ainda úmidas: ELES OUVEM. Embaixo, menor: não durma.",
@@ -801,17 +802,18 @@ async function interact(k) {
     ]);
   } else if (k === "terminal") {
     await say([
-      "O terminal está apagado. Você dá uma pancada no canto de cima, com vontade.",
+      { t: "O terminal está apagado. Você dá uma pancada no canto de cima, com vontade.", fn: () => { S.punchAt = T; setTimeout(() => { SFX.bang(); S.shake = 4; }, 230); } },
       "A tela acende, tremendo, e leva um minuto inteiro para reiniciar.",
     ]);
     await fx({ time: -1 });
     await say([{ t: CLUE_INTRO.terminal, cls: "sys" }, ...addClues("terminal"), "As teclas do terminal estão sujas de sangue seco."]);
   } else if (k === "locker") {
+    S.pose = "pull";
     await say(["Você força a porta do armário. O metal geme. Leva um minuto."]);
     await fx({ time: -1 });
     S.flags.lockerOpen = true;
     ART.room = bakeRoom(S.flags);
-    S.scareUntil = T + 220; S.shake = 16; SFX.scare();
+    S.scareUntil = T + 220; S.shake = 16; SFX.scare(); S.flinchAt = T + 120; S.pose = "look";
     await say([{ t: "A porta cede e um corpo desaba em cima de você. Não tem rosto. Só um sorriso onde o rosto deveria estar.", cls: "bad" }]);
     const r = await roll("Manter a calma");
     if (r <= 2) { await say([{ t: "Você grita. Não consegue parar de gritar. Alguma coisa lá fora escuta.", cls: "bad" }]); await fx({ mo: -1 }); }
@@ -825,9 +827,10 @@ async function interact(k) {
     ]);
     const i = await options([{ t: "Revistar o corpo.", check: true, diff: "Arriscado" }, { t: "Deixar para depois." }]);
     if (i === 1) { S.seen.delete(k); return; }
+    S.pose = "crouch";
     const r = await roll("Revistar o corpo");
     const res = [
-      [{ t: "Os dedos do morto se fecham no seu pulso. Os dentes vêm logo depois.", cls: "bad", fn: () => { S.scareUntil = T + 160; SFX.scare(); } }, { hp: -1, inf: true }],
+      [{ t: "Os dedos do morto se fecham no seu pulso. Os dentes vêm logo depois.", cls: "bad", fn: () => { S.scareUntil = T + 160; SFX.scare(); G3.grabAt = T; S.flinchAt = T + 250; } }, { hp: -1, inf: true }],
       [{ t: "Uma costela quebrada rasga a sua luva. O sangue é seu.", cls: "bad" }, { hp: -1 }],
       [{ t: "Ele ainda está quente. Quente demais para um morto.", cls: "bad" }, { mo: -1 }],
       [{ t: "Você revista com cuidado. Nada se mexe." }, {}],
@@ -844,7 +847,7 @@ async function interact(k) {
       "É estreito demais para uma pessoa passar.",
     ]);
   } else if (k === "door") {
-    S.bangT = T; SFX.bang(); S.shake = 6;
+    S.bangT = T; SFX.bang(); S.shake = 6; S.flinchAt = T;
     await say([
       "Porta blindada C-03. Você encosta o ouvido no metal.",
       { t: "Alguma coisa bate do outro lado. Uma vez. Depois, silêncio.", cls: "bad" },
@@ -868,10 +871,11 @@ async function keypadMenu() {
     return;
   }
   if (i === 1) {
+    S.pose = "pull";
     await fx({ time: -2 });
     const r = await roll("Ligação direta", S.items.includes("cortador") ? [{ l: "Cortador de plasma", v: 1 }] : []);
     const res = [
-      [{ t: "Uma descarga atravessa o seu corpo. O cheiro de carne queimada é seu.", cls: "bad" }, { hp: -2 }],
+      [{ t: "Uma descarga atravessa o seu corpo. O cheiro de carne queimada é seu.", cls: "bad", fn: () => { S.flinchAt = T; S.shake = 14; } }, { hp: -2 }],
       [{ t: "Faíscas. Uma sirene. Algo responde batendo do outro lado da porta.", cls: "bad", fn: () => { S.bangT = T; SFX.bang(); } }, { hp: -1, mo: -1 }],
       [{ t: "Fios demais. Nenhum parece o certo." }, {}],
       [{ t: "Quase. A trava estala... e volta." }, {}],
@@ -886,7 +890,7 @@ async function keypadMenu() {
 function keypad() {
   const id = RUN;
   return new Promise(res => {
-    S.mode = "keypad"; S.entry = ""; S.kMsg = null; S.kLock = false;
+    S.mode = "keypad"; S.entry = ""; S.kMsg = null; S.kLock = false; S.pose = "type";
     S.hand.x = S.hand.tx = 900; S.hand.y = S.hand.ty = 820;
     chEl.innerHTML = `
       <div class="e sys">PISTAS NO DIÁRIO</div>
@@ -896,7 +900,7 @@ function keypad() {
     $("kBack").addEventListener("click", () => S.kDone(false));
     S.kDone = ok => {
       if (S.mode !== "keypad") return;
-      S.mode = "busy"; chEl.innerHTML = "";
+      S.mode = "busy"; chEl.innerHTML = ""; S.pose = null;
       if (live(id)) res(ok);
     };
   });
@@ -905,7 +909,7 @@ function pressKey(k) {
   if (S.mode !== "keypad" || S.kLock) return;
   const key = KEYS.find(q => q.k === k); if (!key) return;
   S.hand.tx = key.x + key.w / 2; S.hand.ty = key.y + key.h / 2 + 10;
-  S.pressed = k; S.pressedUntil = T + 170; S.kMsg = null;
+  S.pressed = k; S.pressedUntil = T + 170; S.kMsg = null; S.pokeAt = T;
   if (k === "C") { S.entry = ""; SFX.key(); return; }
   if (k === "OK") { if (S.entry.length < 4) { SFX.deny(); return; } SFX.key(); submit(); return; }
   if (S.entry.length < 4) { S.entry += k; SFX.key(); } else SFX.deny();
@@ -924,7 +928,7 @@ function submit() {
   addEntry({ t: `${S.entry}: NEGADO. Reator −1 min.`, cls: "sys bad" });
   if (S.wrong % 3 === 0) {
     setTimeout(() => {
-      SFX.bang(); S.bangT = T; S.shake = 12;
+      SFX.bang(); S.bangT = T; S.shake = 12; S.flinchAt = T;
       addEntry({ t: "Alguma coisa ouviu os bipes. Está batendo do outro lado da porta. Moral −1.", cls: "bad" });
       S.mo = Math.max(0, S.mo - 1); hud();
       if (S.mo <= 0) { S.kDone(false); }
@@ -973,11 +977,13 @@ function endWin() {
   finish("VOCÊ SAIU DA CELA", true);
 }
 async function endDeath() {
+  S.pose = "fall";
   S.over = true; S.timerOn = false; S.fadeOut = true;
   await say([{ t: "Suas pernas cedem. O chão da cela é frio, e depois não é mais nada.", cls: "bad" }, { t: "No duto, alguma coisa para de arranhar." }]);
   finish("VOCÊ MORREU NA CELA", false);
 }
 async function endCollapse() {
+  S.pose = "hug";
   S.over = true; S.timerOn = false;
   await say([{ t: "Você senta no canto da cela, abraça os joelhos e fecha os olhos. O teclado pode esperar. Tudo pode esperar.", cls: "bad" }, { t: "No duto, alguma coisa para de arranhar." }]);
   S.fadeOut = true;
@@ -985,7 +991,7 @@ async function endCollapse() {
 }
 function reactorEnd() {
   if (S.over) return;
-  RUN++; S.over = true; S.timerOn = false; S.mode = "busy";
+  RUN++; S.over = true; S.timerOn = false; S.mode = "busy"; S.pose = "fall";
   S.flash = { c: "#fff4e0", a: 1 }; S.shake = 30; SFX.door(); SFX.bang();
   chEl.innerHTML = "";
   addEntry({ v: "SIS", t: "DETONAÇÃO DO NÚCLEO.", cls: "alarm" });
@@ -1076,9 +1082,11 @@ function ps1Material(opts) {
   };
   return m;
 }
-function buildCharacter() {
+function buildCharacter(v = {}) {
   const SKIN = "#c29c78", SKIN_D = "#8f6a50", HAIR = "#1e1814", HAIR_L = "#35291f";
-  const COAT = "#8a5a22", COAT_D = "#5e3c14", COAT_L = "#a8742e";
+  const COAT = v.corpse ? "#4b4a3a" : v.faceless ? "#3e4a52" : "#8a5a22";
+  const COAT_D = v.corpse ? "#302f26" : v.faceless ? "#28323a" : "#5e3c14";
+  const COAT_L = v.corpse ? "#626049" : v.faceless ? "#56646e" : "#a8742e";
   const faceTex = pxTex(16, 16, (g, px) => {
     px(0, 0, 16, 16, SKIN);
     px(0, 0, 16, 4, HAIR); [1, 3, 4, 7, 9, 12, 14].forEach(x => px(x, 4, 1, 1 + (x % 2), HAIR)); px(0, 4, 2, 5, HAIR); px(14, 4, 2, 5, HAIR);
@@ -1152,10 +1160,27 @@ function buildCharacter() {
   const neck = grp(spine, 0, 0.55, 0);
   add(neck, limb(0.05, 0.055, 0.1), mat.skin, 0, 0.03, 0);
   const head = grp(neck, 0, 0.1, 0.01);
-  add(head, new THREE.BoxGeometry(0.19, 0.23, 0.2), [mat.headSide, mat.headSide, mat.hair, mat.skin, mat.face, mat.hair], 0, 0.08, 0);
-  add(head, new THREE.BoxGeometry(0.2, 0.06, 0.2), mat.hair, 0, 0.2, -0.01);
-  [[-0.06, 0.22, -0.04, -0.4, 0.3], [0.05, 0.23, -0.02, -0.3, -0.4], [0, 0.21, -0.1, -1.0, 0], [0.07, 0.2, 0.06, 0.4, -0.3], [-0.07, 0.2, 0.07, 0.5, 0.3]].forEach(([x, y, z, rx, rz]) => add(head, new THREE.ConeGeometry(0.045, 0.1, 4), mat.hair, x, y, z, rx, 0, rz));
-  add(head, new THREE.BoxGeometry(0.04, 0.05, 0.03), mat.skin, 0, 0.05, 0.11); // nariz
+  if (v.corpse) {
+    // capacete rachado do engenheiro
+    const helm = M(pxTex(16, 16, (g, px) => { px(0, 0, 16, 16, "#474d4a"); speckle(px, 16, 16, ["#3a3f3d", "#5a615d"], 30); px(0, 12, 16, 1, "#2c302e"); }));
+    const visor = M(pxTex(16, 16, (g, px) => {
+      px(0, 0, 16, 16, "#474d4a"); px(2, 4, 12, 8, "#0d1110"); px(3, 5, 4, 1, "#3d4a48");
+      [[6, 4], [7, 5], [7, 6], [8, 7], [9, 7], [10, 8], [10, 9]].forEach(([x, y]) => px(x, y, 1, 1, "#9aa5a2"));
+      px(4, 11, 3, 4, "#5a1510"); px(5, 14, 1, 2, "#5a1510");
+    }));
+    add(head, new THREE.BoxGeometry(0.24, 0.26, 0.25), [helm, helm, helm, mat.dark, visor, helm], 0, 0.08, 0);
+  } else {
+    const faceMat = v.faceless ? M(pxTex(16, 16, (g, px) => {
+      px(0, 0, 16, 16, "#a89886"); speckle(px, 16, 16, ["#8f7e6d", "#b8a896"], 30);
+      px(2, 9, 12, 2, "#1a0605"); px(1, 8, 2, 2, "#1a0605"); px(13, 8, 2, 2, "#1a0605");
+      for (let x = 3; x < 13; x += 2) { px(x, 9, 1, 1, "#d8cfbc"); px(x + 1, 10, 1, 1, "#d8cfbc"); }
+      px(4, 11, 1, 3, "#5a1510"); px(11, 11, 1, 4, "#5a1510");
+    })) : mat.face;
+    add(head, new THREE.BoxGeometry(0.19, 0.23, 0.2), [mat.headSide, mat.headSide, mat.hair, mat.skin, faceMat, mat.hair], 0, 0.08, 0);
+    add(head, new THREE.BoxGeometry(0.2, 0.06, 0.2), mat.hair, 0, 0.2, -0.01);
+    [[-0.06, 0.22, -0.04, -0.4, 0.3], [0.05, 0.23, -0.02, -0.3, -0.4], [0, 0.21, -0.1, -1.0, 0], [0.07, 0.2, 0.06, 0.4, -0.3], [-0.07, 0.2, 0.07, 0.5, 0.3]].forEach(([x, y, z, rx, rz]) => add(head, new THREE.ConeGeometry(0.045, 0.1, 4), mat.hair, x, y, z, rx, 0, rz));
+    if (!v.faceless) add(head, new THREE.BoxGeometry(0.04, 0.05, 0.03), mat.skin, 0, 0.05, 0.11); // nariz
+  }
   const arms = [];
   for (const s of [-1, 1]) {
     const sh = grp(spine, s * 0.23, 0.46, 0);
@@ -1206,12 +1231,19 @@ function initThree() {
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
     const ch = buildCharacter(); scene.add(ch.root);
     const rigGlow = new THREE.PointLight(0x5fe3f2, 0.55, 0.9, 2); rigGlow.position.set(0, 0.27, -0.3); ch.spine.add(rigGlow);
+    // engenheiro morto, de bruços na poça; corpo sem rosto que cai do armário, de barriga para cima
+    const eng = buildCharacter({ corpse: true }), lck = buildCharacter({ faceless: true });
+    scene.add(eng.root, lck.root);
     const pr = new THREE.WebGLRenderer({ canvas: $("portrait"), alpha: false, antialias: false });
     pr.setPixelRatio(1); pr.setSize(55, 65, false); pr.outputEncoding = THREE.sRGBEncoding; pr.toneMapping = THREE.ACESFilmicToneMapping; pr.toneMappingExposure = 0.9; pr.setClearColor(0x16201e);
     const pcam = new THREE.PerspectiveCamera(20, 110 / 130, 0.05, 10);
     Object.assign(G3, { rigGlow, ok: true, r, scene, cam, red, term, key, ch, pr, pcam, ray: new THREE.Raycaster(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), yaw: 0, phase: 0, look: 0 });
     G3.red.position.copy(worldAt(...P(826, 95), 2.35));
     G3.term.position.copy(worldAt(...P(345, 440), 1.05)).add(new THREE.Vector3(0.35, 0, 0.35));
+    layCorpse(eng, P(1075, 790), Math.PI / 2, true);
+    layCorpse(lck, P(760, 640), 0.95, false);
+    lck.root.visible = false;
+    G3.corpses = { eng, lck };
   } catch (e) { console.error(e); G3.ok = false; }
 }
 /* ---------- Filtro PS1 na tela inteira: 320×180, cores de 15 bits, pontilhado ---------- */
@@ -1231,6 +1263,101 @@ function ps1Filter() {
   }
   g.putImageData(im, 0, 0);
   ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(PS1.c, 0, 0, CW, CH); ctx.restore();
+}
+
+function applyPose(ch, name, w, t) {
+  const L = (o, k, v) => { o[k] += (v - o[k]) * w; };
+  const arms = ch.arms, legs = ch.legs, R = arms[1], Lf = arms[0];
+  switch (name) {
+    case "crouch": {                                   // agachado revistando o corpo
+      const rum = Math.sin(t * 9) * 0.18;
+      L(ch.hips.position, "y", 0.56); L(ch.spine.rotation, "x", 0.72); L(ch.head.rotation, "x", 0.45);
+      legs.forEach((g, i) => { L(g.th.rotation, "x", -1.3 + (i ? 0.35 : 0)); L(g.kn.rotation, "x", 2.05 - (i ? 0.35 : 0)); L(g.ft.rotation, "x", -0.72); });
+      arms.forEach((a, i) => { L(a.sh.rotation, "x", -0.95 + (i ? rum : -rum)); L(a.sh.rotation, "z", a.s * 0.12); L(a.el.rotation, "x", -0.45 + (i ? -rum : rum)); });
+      break;
+    }
+    case "hug": {                                      // encolhido no chão, abraçando os joelhos
+      L(ch.hips.position, "y", 0.46); L(ch.spine.rotation, "x", 0.85); L(ch.head.rotation, "x", 0.85);
+      legs.forEach(g => { L(g.th.rotation, "x", -1.55); L(g.kn.rotation, "x", 2.5); L(g.ft.rotation, "x", -0.9); });
+      arms.forEach(a => { L(a.sh.rotation, "x", -0.75); L(a.sh.rotation, "z", -a.s * 0.3); L(a.el.rotation, "x", -1.3); });
+      L(ch.spine.rotation, "z", Math.sin(t * 3.5) * 0.04);
+      break;
+    }
+    case "type": {                                     // digitando no teclado da porta
+      const poke = S.pokeAt ? Math.max(0, 1 - (T - S.pokeAt) / 170) : 0;
+      L(ch.spine.rotation, "x", 0.12); L(ch.head.rotation, "x", 0.12);
+      L(R.sh.rotation, "x", -1.35 - poke * 0.18); L(R.sh.rotation, "z", -0.12); L(R.el.rotation, "x", -0.35 + poke * 0.35);
+      L(Lf.sh.rotation, "x", -0.15); L(Lf.el.rotation, "x", -0.5);
+      break;
+    }
+    case "look": {                                     // examinando de perto, mão apoiada
+      L(ch.spine.rotation, "x", 0.22); L(ch.head.rotation, "x", -0.08);
+      L(R.sh.rotation, "x", -1.15); L(R.sh.rotation, "z", -0.1); L(R.el.rotation, "x", -0.5);
+      L(Lf.sh.rotation, "x", 0.05); L(Lf.el.rotation, "x", -0.3);
+      break;
+    }
+    case "listen": {                                   // ouvido encostado na porta
+      L(ch.spine.rotation, "x", 0.28); L(ch.spine.rotation, "z", 0.18); L(ch.head.rotation, "z", 0.35);
+      L(R.sh.rotation, "x", -1.4); L(R.el.rotation, "x", -0.8); L(Lf.sh.rotation, "x", -1.2); L(Lf.el.rotation, "x", -1.0);
+      break;
+    }
+    case "pull": {                                     // puxando o armário / arrancando o painel
+      const sh = Math.sin(t * 22) * 0.05;
+      L(ch.hips.position, "y", 0.88); L(ch.spine.rotation, "x", -0.22 + sh);
+      legs.forEach((g, i) => { L(g.th.rotation, "x", i ? 0.2 : -0.45); L(g.kn.rotation, "x", i ? 0.15 : 0.6); });
+      arms.forEach(a => { L(a.sh.rotation, "x", -1.3 + sh); L(a.sh.rotation, "z", a.s * -0.1); L(a.el.rotation, "x", -0.55); });
+      break;
+    }
+    case "startle": {                                  // susto: recua e protege o rosto
+      L(ch.hips.position, "y", 0.9); L(ch.spine.rotation, "x", -0.35); L(ch.head.rotation, "x", -0.25);
+      legs.forEach((g, i) => { L(g.th.rotation, "x", i ? 0.35 : -0.2); L(g.kn.rotation, "x", i ? 0.3 : 0.25); });
+      arms.forEach(a => { L(a.sh.rotation, "x", -1.85); L(a.sh.rotation, "z", a.s * 0.35); L(a.el.rotation, "x", -1.9); });
+      break;
+    }
+    case "punch": {                                    // pancada no terminal
+      L(ch.spine.rotation, "y", 0.35); L(ch.spine.rotation, "x", 0.2);
+      L(R.sh.rotation, "x", -1.7); L(R.el.rotation, "x", -0.05);
+      break;
+    }
+    case "fall": {                                     // desaba de bruços
+      L(ch.body.rotation, "x", Math.PI / 2); L(ch.body.position, "y", 0.13);
+      arms.forEach((a, i) => { L(a.sh.rotation, "x", i ? -2.6 : 0.3); L(a.sh.rotation, "z", a.s * 0.4); L(a.el.rotation, "x", -0.4); });
+      legs.forEach((g, i) => { L(g.th.rotation, "z", g.s * 0.12); L(g.kn.rotation, "x", i ? 0.4 : 0.1); });
+      L(ch.head.rotation, "y", 1.2);
+      break;
+    }
+  }
+}
+function layCorpse(c, pt, yaw, faceDown) {
+  const w = worldAt(pt[0], pt[1], 0), dir = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+  c.root.position.copy(w).addScaledVector(dir, -0.9);
+  c.root.rotation.y = yaw;
+  c.body.rotation.x = faceDown ? Math.PI / 2 : -Math.PI / 2;
+  c.body.position.y = faceDown ? 0.13 : 0.14;
+  c.body.position.z = faceDown ? 0 : 1.8;
+  c.hips.position.y = 0.95;
+  c.arms[0].sh.rotation.set(-2.7, 0, 0.35); c.arms[0].el.rotation.x = -0.3;
+  c.arms[1].sh.rotation.set(0.25, 0, -0.35); c.arms[1].el.rotation.x = -0.9;
+  c.legs[0].th.rotation.set(-0.1, 0, -0.14); c.legs[0].kn.rotation.x = 0.35;
+  c.legs[1].th.rotation.set(0.05, 0, 0.1); c.legs[1].kn.rotation.x = 0.1;
+  c.head.rotation.y = faceDown ? 1.25 : 0.5; c.neck.rotation.y = faceDown ? 0.3 : 0;
+  c.skirt.rotation.x = faceDown ? -0.15 : 0.15;
+  c.base = { a1x: c.arms[1].sh.rotation.x, a1e: c.arms[1].el.rotation.x, hy: c.head.rotation.y };
+}
+function animateCorpses(tt) {
+  const cs = G3.corpses; if (!cs) return;
+  cs.lck.root.visible = !!S.flags.lockerOpen;
+  const e = cs.eng;
+  // a mão agarra (dado 1 ao revistar) e pequenos espasmos de vez em quando
+  const g = G3.grabAt ? Math.max(0, 1 - (T - G3.grabAt) / 1100) : 0, gs = Math.sin(g * Math.PI);
+  const tw = (T % 11000) < 260 ? Math.sin(T / 30) * 0.08 : 0;
+  e.arms[1].sh.rotation.x = e.base.a1x - gs * 1.6 + tw;
+  e.arms[1].el.rotation.x = e.base.a1e + gs * 0.7;
+  e.head.rotation.y = e.base.hy + tw * 2;
+  // a barra do traje dele ainda pisca, fraca
+  e.rigLights.forEach((m, k) => { m.material = k < 2 ? e.mat.rig : e.mat.rigOff; });
+  e.mat.rig.emissive.setHex(0x5fe3f2); e.mat.rig.emissiveIntensity = hsh(Math.floor(T / 140)) > 0.35 ? 0.35 : 0.05;
+  cs.lck.rigLights.forEach(m => { m.material = cs.lck.mat.rigOff; });
 }
 
 // ponto da tela -> ponto do mundo numa altura h
@@ -1294,6 +1421,17 @@ function render3D(dt, beam, flick, moving) {
   });
   ch.skirt.rotation.x = -wk * Math.abs(s) * 0.08 - wk * 0.05;
   ch.skirt.rotation.z = wk * s * 0.05;
+  // poses de interação por cima da caminhada
+  ch.body.rotation.set(0, 0, 0); ch.body.position.set(0, 0, 0);
+  const want = S.pose || null;
+  if (want) G3.poseName = want;
+  G3.poseW = (G3.poseW || 0) + ((want ? 1 : 0) - (G3.poseW || 0)) * Math.min(1, dt / (want === "fall" ? 420 : 200));
+  if (G3.poseW > 0.01 && G3.poseName) applyPose(ch, G3.poseName, G3.poseW, tt);
+  const env = (t0, d) => t0 ? Math.sin(Math.min(1, Math.max(0, (T - t0) / d)) * Math.PI) : 0;
+  const fw = env(S.flinchAt, 950), pw = env(S.punchAt, 520);
+  if (fw > 0.01) applyPose(ch, "startle", fw, tt);
+  if (pw > 0.01) applyPose(ch, "punch", pw, tt);
+  animateCorpses(tt);
   // cabeça olha o que o jogador aponta
   let look = 0;
   if (S.hover && !moving) { const hw = worldAt(S.hover.r.x + S.hover.r.w / 2, S.hover.r.y + S.hover.r.h / 2, 1.2); look = Math.atan2(hw.x - w.x, hw.z - w.z) - ch.root.rotation.y; look = Math.atan2(Math.sin(look), Math.cos(look)); look = Math.max(-0.9, Math.min(0.9, look)); }
@@ -1527,6 +1665,7 @@ async function startGame() {
     while (!S.flags.solved) {
       const k = await exploreChoice();
       await interact(k);
+      S.pose = null;
     }
     await openDoor();
   } catch (e) { if (e !== STOP && live(id)) console.error(e); }
