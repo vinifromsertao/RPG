@@ -149,8 +149,6 @@
         <button id="sBtn" type="button">SOM</button>
         <button id="fBtn" type="button">TELA CHEIA</button>
         <button id="psBtn" type="button" class="on">FILTRO PS1</button>
-        <button id="mBtn" type="button" title="Carregar um personagem .glb (ou arraste o arquivo para a cena)">MODELO 3D</button>
-        <input id="glbFile" type="file" accept=".glb,.gltf,model/gltf-binary" hidden>
       </div>
     </div>
     <div id="logInner" aria-live="polite"></div>
@@ -168,7 +166,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 (() => {
 "use strict";
@@ -716,13 +713,17 @@ function walkTo(x, y) {
 function updateWalk(dt) {
   if (!S.target) return;
   const dx = S.target.x - S.pos.x, dy = S.target.y - S.pos.y, dist = Math.hypot(dx, dy);
-  const sp = 230 * dt / 1000;
+  const sp = (S.hp === 1 ? 118 : S.hp === 2 ? 190 : 230) * dt / 1000;
   if (dist <= sp) { S.pos.x = S.target.x; S.pos.y = S.target.y; S.target = null; S.walkPh = 0; const r = S.arrive; S.arrive = null; r && r(); return; }
   S.pos.x += dx / dist * sp; S.pos.y += dy / dist * sp;
   S.facing.back = dy < -0.3 * Math.abs(dx);
   S.facing.flip = S.facing.back ? dx > 0 : dx < 0;
   S.walkPh += dt;
-  if (T > S.stepAt) { SFX.step(); S.stepAt = T + 360; }
+  if (T > S.stepAt) {
+    SFX.step();
+    if (S.hp === 1) { noise(0.35, 0.05, 600, 0.12, 200, "bandpass", 2); S.stepAt = T + 620; }   // pé arrastado
+    else S.stepAt = T + (S.hp === 2 ? 430 : 360);
+  }
 }
 function faceHot(h) {
   const cx = h.r.x + h.r.w / 2, cy = h.r.y + h.r.h / 2;
@@ -1122,7 +1123,8 @@ function buildCharacter() {
     coatFront: M(coatFront), coatBack: M(coatBack), coatSide: M(coatSide), coat: M(coatPlain),
     skirt: M(skirtTex, { side: THREE.DoubleSide }), pants: M(pantsTex), boot: M(bootTex), glove: M(gloveTex), belt: M(beltTex),
     dark: ps1Material({ color: 0x15110e }), metal: ps1Material({ color: 0x59625f }),
-    rig: ps1Material({ color: 0x103036, emissive: 0x5fe3f2, emissiveIntensity: 1.6 }),
+    rig: ps1Material({ color: 0x103036, emissive: 0x5fe3f2, emissiveIntensity: 1.6, toneMapped: false }),
+    rigOff: ps1Material({ color: 0x0c1517 }),
   };
   const shadowed = [];
   const add = (parent, geo, m, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => {
@@ -1144,7 +1146,9 @@ function buildCharacter() {
   add(spine, new THREE.BoxGeometry(0.38, 0.5, 0.24), [mat.coatSide, mat.coatSide, mat.coat, mat.dark, mat.coatFront, mat.coatBack], 0, 0.25, 0);
   add(spine, new THREE.BoxGeometry(0.3, 0.1, 0.2), mat.coat, 0, 0.53, -0.01, 0.15);  // gola
   const rigLights = [];
-  for (let k = 0; k < 5; k++) rigLights.push(add(spine, new THREE.BoxGeometry(0.05, 0.035, 0.02), mat.rig, 0, 0.44 - k * 0.075, -0.125));
+  add(spine, new THREE.BoxGeometry(0.1, 0.42, 0.03), mat.metal, 0, 0.27, -0.128);                    // placa do traje
+  for (let k = 0; k < 6; k++) add(spine, new THREE.BoxGeometry(0.12, 0.012, 0.035), mat.dark, 0, 0.47 - k * 0.08, -0.13);
+  for (let k = 0; k < 5; k++) rigLights.push(add(spine, new THREE.BoxGeometry(0.075, 0.05, 0.02), mat.rig, 0, 0.43 - k * 0.08, -0.146));
   const neck = grp(spine, 0, 0.55, 0);
   add(neck, limb(0.05, 0.055, 0.1), mat.skin, 0, 0.03, 0);
   const head = grp(neck, 0, 0.1, 0.01);
@@ -1201,10 +1205,11 @@ function initThree() {
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.ShadowMaterial({ opacity: 0.5 }));
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
     const ch = buildCharacter(); scene.add(ch.root);
+    const rigGlow = new THREE.PointLight(0x5fe3f2, 0.55, 0.9, 2); rigGlow.position.set(0, 0.27, -0.3); ch.spine.add(rigGlow);
     const pr = new THREE.WebGLRenderer({ canvas: $("portrait"), alpha: false, antialias: false });
     pr.setPixelRatio(1); pr.setSize(55, 65, false); pr.outputEncoding = THREE.sRGBEncoding; pr.toneMapping = THREE.ACESFilmicToneMapping; pr.toneMappingExposure = 0.9; pr.setClearColor(0x16201e);
     const pcam = new THREE.PerspectiveCamera(20, 110 / 130, 0.05, 10);
-    Object.assign(G3, { ok: true, r, scene, cam, red, term, key, ch, pr, pcam, ray: new THREE.Raycaster(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), yaw: 0, phase: 0, look: 0 });
+    Object.assign(G3, { rigGlow, ok: true, r, scene, cam, red, term, key, ch, pr, pcam, ray: new THREE.Raycaster(), plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), yaw: 0, phase: 0, look: 0 });
     G3.red.position.copy(worldAt(...P(826, 95), 2.35));
     G3.term.position.copy(worldAt(...P(345, 440), 1.05)).add(new THREE.Vector3(0.35, 0, 0.35));
   } catch (e) { console.error(e); G3.ok = false; }
@@ -1226,53 +1231,6 @@ function ps1Filter() {
   }
   g.putImageData(im, 0, 0);
   ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(PS1.c, 0, 0, CW, CH); ctx.restore();
-}
-
-/* ---------- Modelo externo (.glb gerado no Higgsfield) ---------- */
-const GLB_HEIGHT = 1.78;
-function useGLB(gltf, label) {
-  if (!G3.ok) return;
-  const model = gltf.scene;
-  model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; if (o.material) { o.material.side = THREE.FrontSide; if (o.material.map) o.material.map.encoding = THREE.sRGBEncoding; } } });
-  const box = new THREE.Box3().setFromObject(model), size = new THREE.Vector3(), ctr = new THREE.Vector3();
-  box.getSize(size); box.getCenter(ctr);
-  const k = GLB_HEIGHT / Math.max(size.y, 1e-3);
-  const holder = new THREE.Group(), turn = new THREE.Group();
-  model.position.set(-ctr.x, -box.min.y, -ctr.z);
-  turn.add(model); turn.scale.setScalar(k); holder.add(turn);
-  if (G3.glb) G3.ch.root.remove(G3.glb.holder);
-  G3.ch.root.add(holder);
-  G3.ch.body.visible = false;
-  G3.glb = { holder, turn, height: GLB_HEIGHT, head: model.getObjectByName("Head") || null };
-  model.traverse(o => { if (o.isSkinnedMesh) o.frustumCulled = false; });
-  // animações do arquivo: Idle parado, Walk andando
-  if (gltf.animations && gltf.animations.length) {
-    const mixer = new THREE.AnimationMixer(model);
-    const clip = n => gltf.animations.find(a => a.name.toLowerCase() === n.toLowerCase());
-    const idle = clip("Idle") || gltf.animations[0];
-    const walk = clip("Walk") || clip("Walk_Forward") || gltf.animations[0];
-    const A = { idle: mixer.clipAction(idle), walk: mixer.clipAction(walk) };
-    A.idle.play(); A.walk.play(); A.walk.setEffectiveWeight(0);
-    Object.assign(G3.glb, { mixer, A, cur: "idle", acc: 0 });
-  }
-  if (!/assets\/personagem/.test(label)) addEntry({ t: `Modelo 3D carregado: ${label}${G3.glb.mixer ? " (com animações)" : ""}. Use GIRAR se ele estiver de costas.`, cls: "sys good" });
-  $("mBtn").textContent = "GIRAR";
-}
-function loadGLBBuffer(buf, label) {
-  if (!G3.ok || !THREE.GLTFLoader) { addEntry({ t: "Não foi possível carregar o modelo: o 3D não está disponível neste navegador.", cls: "sys bad" }); return; }
-  new THREE.GLTFLoader().parse(buf, "", g => useGLB(g, label), e => addEntry({ t: "O arquivo não parece ser um modelo .glb válido.", cls: "sys bad" }));
-}
-function tryDefaultGLB() {
-  if (!G3.ok || !THREE.GLTFLoader) return;
-  // 1º: o .glb direto (repositório); 2º: a cópia em base64 dentro de .json (link publicado)
-  fetch("assets/personagem.glb").then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })
-    .then(buf => loadGLBBuffer(buf, "assets/personagem.glb"))
-    .catch(() => fetch("assets/personagem.glb.json").then(r => r.ok ? r.json() : null).then(j => {
-      if (!j || !j.glb) return;
-      const bin = atob(j.glb), u8 = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-      loadGLBBuffer(u8.buffer, "assets/personagem.glb.json");
-    })).catch(() => {});
 }
 
 // ponto da tela -> ponto do mundo numa altura h
@@ -1301,26 +1259,38 @@ function render3D(dt, beam, flick, moving) {
   const poseDt = G3.acc >= 66 ? G3.acc : 0;           // pose atualizada a ~15 fps, como no PS1
   if (poseDt) G3.acc = 0;
   const tt = Math.floor(T / 66) * 0.066;
-  if (moving && poseDt) G3.phase += poseDt / 1000 * 7.2;
+  const hurt = S.hp === 1 ? 1 : 0, sore = S.hp === 2 ? 1 : 0;
+  G3.hurt = (G3.hurt || 0) + (hurt - (G3.hurt || 0)) * Math.min(1, dt / 400);   // transição suave para a postura ferida
+  const hu = G3.hurt;
+  if (moving && poseDt) G3.phase += poseDt / 1000 * (hurt ? 4.3 : sore ? 6.2 : 7.2);
   const amt = moving ? 1 : 0, s = Math.sin(G3.phase), c = Math.cos(G3.phase);
   G3.walk = (G3.walk || 0) + (amt - (G3.walk || 0)) * Math.min(1, dt / 150);
   const wk = G3.walk;
-  ch.hips.position.y = 0.95 + wk * Math.abs(c) * 0.035 - wk * 0.015 + (1 - wk) * Math.sin(tt * 1.6) * 0.004;
+  // mancando: o corpo afunda quando o peso cai na perna machucada (direita)
+  const limpDip = hu * wk * Math.max(0, s) * 0.07;
+  ch.hips.position.y = 0.95 + wk * Math.abs(c) * 0.035 * (1 - hu * 0.5) - wk * 0.015 - limpDip - hu * 0.04 + (1 - wk) * Math.sin(tt * (1.6 + hu * 1.4)) * (0.004 + hu * 0.006);
   ch.hips.rotation.y = wk * s * 0.12;
-  ch.spine.rotation.y = -wk * s * 0.18;
-  ch.spine.rotation.x = 0.05 + wk * 0.06 + (1 - wk) * Math.sin(tt * 1.6) * 0.012;
+  ch.hips.rotation.z = hu * (wk * s * 0.1 + 0.05);
+  ch.spine.rotation.y = -wk * s * 0.18 * (1 - hu * 0.6);
+  ch.spine.rotation.z = -hu * 0.12;
+  ch.spine.rotation.x = 0.05 + wk * 0.06 + sore * 0.1 + hu * 0.38 + (1 - wk) * Math.sin(tt * (1.6 + hu * 1.4)) * (0.012 + hu * 0.02);
   ch.spine.scale.set(1, 1 + (1 - wk) * Math.sin(tt * 1.6) * 0.008, 1);
   ch.legs.forEach((L, i) => {
     const ph = i ? s : -s, ph2 = i ? c : -c;
-    L.th.rotation.x = wk * ph * 0.55 - (1 - wk) * 0.02;
-    L.kn.rotation.x = wk * Math.max(0, ph2) * 0.9 + (1 - wk) * 0.04;
-    L.ft.rotation.x = -wk * ph * 0.25;
+    const bad = i === 1 ? hu : 0;                       // perna direita quase não dobra: é arrastada
+    L.th.rotation.x = wk * ph * 0.55 * (1 - bad * 0.55) - (1 - wk) * 0.02 + hu * 0.12;
+    L.th.rotation.z = bad * 0.08;
+    L.kn.rotation.x = wk * Math.max(0, ph2) * 0.9 * (1 - bad * 0.8) + (1 - wk) * 0.04 + hu * (i ? 0.05 : 0.25);
+    L.ft.rotation.x = -wk * ph * 0.25 * (1 - bad);
   });
   ch.arms.forEach((A, i) => {
     const ph = i ? -s : s;
-    A.sh.rotation.x = wk * ph * 0.45 + (1 - wk) * Math.sin(tt * 1.6 + i) * 0.03;
-    A.sh.rotation.z = A.s * (0.08 + (1 - wk) * 0.04);
-    A.el.rotation.x = -0.25 - wk * Math.max(0, -ph) * 0.45;
+    const clutch = i === 1 ? Math.max(hu, sore * 0.5) : 0;   // mão direita segura o ferimento na lateral
+    const swing = wk * ph * 0.45 * (1 - hu * 0.6) + (1 - wk) * Math.sin(tt * 1.6 + i) * 0.03;
+    A.sh.rotation.x = swing * (1 - clutch) - clutch * 0.55;
+    A.sh.rotation.z = A.s * (0.08 + (1 - wk) * 0.04) * (1 - clutch) - clutch * 0.25;
+    A.el.rotation.x = (-0.25 - wk * Math.max(0, -ph) * 0.45) * (1 - clutch) - clutch * 1.7;
+    A.el.rotation.z = -clutch * 0.5;
   });
   ch.skirt.rotation.x = -wk * Math.abs(s) * 0.08 - wk * 0.05;
   ch.skirt.rotation.z = wk * s * 0.05;
@@ -1329,24 +1299,14 @@ function render3D(dt, beam, flick, moving) {
   if (S.hover && !moving) { const hw = worldAt(S.hover.r.x + S.hover.r.w / 2, S.hover.r.y + S.hover.r.h / 2, 1.2); look = Math.atan2(hw.x - w.x, hw.z - w.z) - ch.root.rotation.y; look = Math.atan2(Math.sin(look), Math.cos(look)); look = Math.max(-0.9, Math.min(0.9, look)); }
   G3.look += (look - G3.look) * Math.min(1, dt / 200);
   ch.neck.rotation.y = G3.look * 0.6; ch.head.rotation.y = G3.look * 0.4;
-  ch.head.rotation.x = -0.05 + (S.hp === 1 ? 0.2 : 0) + wk * Math.sin(G3.phase * 2) * 0.03;
-  if (G3.glb && G3.glb.mixer) {
-    const gb = G3.glb, want = moving ? "walk" : "idle";
-    if (want !== gb.cur) { gb.A[want].reset().setEffectiveWeight(1).fadeIn(0.25); gb.A[gb.cur].fadeOut(0.25); gb.cur = want; }
-    gb.acc += dt;
-    const step = PS1.on ? 66 : 0;                      // no modo PS1, a animação anda a ~15 quadros por segundo
-    if (gb.acc >= step) { gb.mixer.update(gb.acc / 1000); gb.acc = 0; }
-  } else if (G3.glb) {
-    const hb = G3.glb.holder;
-    hb.position.y = wk * Math.abs(c) * 0.04;
-    hb.rotation.x = wk * 0.07 + (1 - wk) * Math.sin(tt * 1.6) * 0.006 + (S.hp === 1 ? 0.06 : 0);
-    hb.rotation.z = wk * s * 0.045;
-    hb.scale.set(1, 1 + (1 - wk) * Math.sin(tt * 1.6) * 0.006, 1);
-  }
+  ch.head.rotation.x = -0.05 + hu * 0.22 + sore * 0.06 + wk * Math.sin(G3.phase * 2) * 0.03;
+  ch.head.rotation.z = hu * 0.1;
   // barra de vida nas costas
-  ch.rigLights.forEach((m, k) => { m.visible = k < Math.ceil(S.hp / 3 * 5); });
+  const lit = Math.ceil(S.hp / 3 * 5);
+  ch.rigLights.forEach((m, k) => { m.material = k < lit ? ch.mat.rig : ch.mat.rigOff; });
   const hpCol = S.hp >= 3 ? 0x5fe3f2 : S.hp === 2 ? 0xffd25a : 0xff3b30;
-  ch.mat.rig.emissive.setHex(hpCol); ch.mat.rig.emissiveIntensity = S.hp === 1 ? 0.8 + Math.abs(Math.sin(tt * 6)) * 1.4 : 1.6;
+  ch.mat.rig.emissive.setHex(hpCol); ch.mat.rig.color.setHex(hpCol).multiplyScalar(0.25); ch.mat.rig.emissiveIntensity = S.hp === 1 ? 0.2 + Math.abs(Math.sin(tt * 5)) * 0.8 : 0.85;
+  G3.rigGlow.color.setHex(hpCol); G3.rigGlow.intensity = (S.hp === 1 ? 0.2 + Math.abs(Math.sin(tt * 5)) * 0.9 : 0.55);
   // luzes da sala
   G3.red.intensity = 2.8 * beam + 0.15;
   G3.term.intensity = 1.1 * flick;
@@ -1354,9 +1314,8 @@ function render3D(dt, beam, flick, moving) {
   if (T > portraitAt) {
     portraitAt = T + 90;
     const hp = new THREE.Vector3();
-    if (G3.glb && G3.glb.head) { G3.glb.head.getWorldPosition(hp); hp.y += 0.06; }
-    else if (G3.glb) { ch.root.getWorldPosition(hp); hp.y += G3.glb.height - 0.1; } else { ch.head.getWorldPosition(hp); hp.y += 0.03; }
-    const yawP = ch.root.rotation.y + (G3.glb ? G3.glb.turn.rotation.y : ch.neck.rotation.y);
+    ch.head.getWorldPosition(hp); hp.y += 0.03;
+    const yawP = ch.root.rotation.y + ch.neck.rotation.y;
     const fwd = new THREE.Vector3(Math.sin(yawP), 0, Math.cos(yawP));
     G3.pcam.position.copy(hp).addScaledVector(fwd, 1.25).add(new THREE.Vector3(0.12, 0.04, 0));
     G3.pcam.lookAt(hp.x, hp.y - 0.06, hp.z);
@@ -1551,13 +1510,6 @@ $("psBtn").addEventListener("click", e => {
   if (G3.ok) G3.r.setSize(PS1.on ? PS1_W : CW, PS1.on ? PS1_H : CH, false);
   try { localStorage.setItem("sinal-ps1", PS1.on ? "1" : "0"); } catch (_) {}
 });
-$("mBtn").addEventListener("click", () => {
-  if (G3.glb) { G3.glb.turn.rotation.y += Math.PI / 2; return; }
-  $("glbFile").click();
-});
-$("glbFile").addEventListener("change", e => { const f = e.target.files[0]; if (f) f.arrayBuffer().then(b => loadGLBBuffer(b, f.name)); });
-$("scene").addEventListener("dragover", e => e.preventDefault());
-$("scene").addEventListener("drop", e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && /\.(glb|gltf)$/i.test(f.name)) f.arrayBuffer().then(b => loadGLBBuffer(b, f.name)); });
 $("fBtn").addEventListener("click", () => { try { if (document.fullscreenElement) document.exitFullscreen(); else $("game").requestFullscreen().catch(() => {}); } catch (_) {} });
 
 async function startGame() {
@@ -1588,7 +1540,6 @@ async function boot() {
   resetState();
   ART = { room: bakeRoom({}), spr: bakeSprites(), keypad: bakeKeypad(), scare: bakeScare(), roomOld: null };
   initThree();
-  tryDefaultGLB();
   if (!G3.ok) $("portrait").getContext("2d").drawImage(bakePortrait(), 0, 0);
   S.mode = "title"; S.fade = 0;
   hud();
