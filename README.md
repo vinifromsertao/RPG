@@ -1,67 +1,78 @@
-# SINAL MORTO — RPG de terror espacial em 8 bits
+# O Gato Preto — leitura interativa
 
-RPG narrado frase a frase para **8 jogadores**, com pixel art, sons 8-bit e decisões resolvidas com **1 dado de 6 lados**.
-Inspirado no clima de *Dead Space*. Feito para o clube: apague as luzes, use caixas de som e deixe o relógio correr.
+O conto **“O Gato Preto”** (*The Black Cat*, 1843), de Edgar Allan Poe, em tradução integral para o português, dividido em **13 partes** para ser lido parte por parte, como um livro pop-up de terror desenhado a carvão.
 
-## Como jogar
+> ⚠️ Contém violência explícita contra animais e contra uma pessoa (texto e ilustrações). Indicado a partir de 14 anos.
 
-1. Abra `index.html` em qualquer navegador.
-2. **INICIAR MISSÃO** → digite o nome de cada jogador (Nº1 a Nº8) e escolha o tempo do reator (padrão: **60 minutos**).
-3. **Espaço / Enter / clique** avançam a narração. O mouse funciona como **lanterna** nas cenas escuras.
-4. Em cada escolha, o grupo decide o que fazer e **quem faz**. O jogador daquele número rola o dado (virtual ou físico).
-5. **PAUSAR** congela o relógio do reator (use para regras, dúvidas ou intervalos).
+## Como usar em aula
 
-### Tripulação
+1. Abra `index.html` em qualquer navegador (computador, tablet ou celular). Funciona sem internet; só as fontes vêm do Google Fonts.
+2. Na capa, clique em **Abrir o livro**. O clique também liga o som, porque os navegadores exigem um toque antes de tocar áudio.
+3. Leia cada parte e responda ao **Pare e pense** no fim da página. Cada pergunta tem uma **resposta sugerida** escondida.
+4. Clique em **Virar a página →** para seguir. As setas ← e → do teclado também viram as páginas.
 
-| Nº | Função | +1 no dado quando… |
-|----|--------|--------------------|
-| 1 | Engenharia | mexe em painéis, faz ligação direta, solda |
-| 2 | Medicina | examina corpos, pessoas, remédios, operações (e as doses curam 2 enquanto a Nº2 viver) |
-| 3 | Segurança | vai na frente, segura portas, enfrenta criaturas |
-| 4 | Pilotagem | salta no vazio, pilota a decolagem |
-| 5 | Comunicações | — |
-| 6 | Mineração | força bruta contra o monólito |
-| 7 | Ciência | investiga o duto, o lençol, o monólito |
-| 8 | Manutenção | dutos, cabos, servir de isca |
+Dicas para criar o clima: apague as luzes, use caixas de som ou fones de ouvido e projete a tela.
 
-Cada tripulante tem **3 de vida**. Com 1 de vida, rola com **-1**. Infectados também rolam com **-1**.
-Com a **MENTE** do grupo abaixo de 20, todos rolam com **-1** (pânico).
+### Botões da barra superior
 
-### O dado
+| Botão | O que faz |
+|---|---|
+| **sumário** | pula para qualquer parte (útil para retomar a leitura) |
+| **som** | liga ou desliga todos os sons |
+| **lanterna** | liga ou desliga o escuro: nas partes I, VI e XIII a página fica escura e o aluno ilumina com o mouse ou o dedo |
+| **sustos** | liga ou desliga os sustos (flashes, tremores, sombras). Desligue para alunos sensíveis; o texto e as ilustrações continuam |
 
-| 1 | 2 | 3 | 4 | 5 | 6 |
-|---|---|---|---|---|---|
-| Desastre | Fracasso | Por um triz | Sucesso | Grande sucesso | Extraordinário |
+As escolhas ficam salvas no navegador.
 
-## Fase 1 — A Tártaro (10 cenas)
+### Abrir direto numa parte
 
-| Cena | Local | O que acontece |
-|------|-------|----------------|
-| 1 | Cela de contenção | **Enigma:** código de 4 dígitos. O teclado só diz NEGADO, sem dicas. As pistas lógicas estão espalhadas na cela (parede, terminal, armário, corpo). O código e as pistas mudam a cada partida. |
-| 2 | Corredor B-7 | Algo nos dutos. Correr, rastejar ou investigar. |
-| 3 | Porta de quarentena | **Escolha moral:** Rhea implora para entrar. Pode ser humana... ou não. |
-| 4 | Enfermaria | Exploração: remédios, o gravador da médica (pista do enigma final) e o lençol que respira. |
-| 5 | Eclusa de pressão | **Sacrifício:** alguém precisa segurar a manivela enquanto a horda chega. |
-| 6 | Anel de observação | Gravidade zero diante do planeta partido. |
-| 7 | Porão de carga | O monólito vermelho chama um de vocês pelo nome. |
-| 8 | Túnel de manutenção | Quem foi infectado? Tratar, operar, abandonar... ou levar assim mesmo. |
-| 9 | Hangar 3 | A criatura entre vocês e a nave de fuga. |
-| 10 | Nave de fuga | **Enigma:** sequência de 6 cores escondida numa cantiga. A nave tem **8 assentos**. |
+Acrescente `#parte-N` ao endereço, por exemplo `index.html#parte-9`. A capa mostra **Abrir na parte IX**. Use `#fim` para abrir nas perguntas finais.
 
-### Finais possíveis
-- **Todos vivos**, alguns vivos, **último sobrevivente**;
-- **Todos mortos** ao longo do caminho;
-- **Explosão do reator** se o tempo acabar;
-- **Queda da nave** na decolagem com peso extra.
+## As 13 partes
 
-## Onde editar o conteúdo
+| Parte | Título | O que acontece na página |
+|---|---|---|
+| I | A confissão | cela escura: a lanterna revela o condenado e um olho brilhando na sombra do gato |
+| II | Plutão | a família, os bichos e a sombra de bruxa da esposa; caixinha de música desafinada |
+| III | O Demônio da Intemperança | o demônio de fumaça sai da garrafa de gim |
+| IV | O olho | a ilustração muda quando o aluno lê “arranquei-lhe um dos olhos” |
+| V | O espírito da perversidade | o gato enforcado balança na árvore; relâmpago e trovão |
+| VI | O fogo e a parede | incêndio; a lanterna procura o gato gravado na parede |
+| VII | O segundo gato | a taverna; o gato sobre o barril |
+| VIII | O olho que falta | o único olho do gato acompanha o mouse do aluno |
+| IX | A forca no peito | a mancha branca vira uma forca diante dos olhos do leitor |
+| X | O machado | a cena muda no instante do golpe |
+| XI | A parede do porão | os tijolos sobem enquanto o aluno lê |
+| XII | A visita da polícia | o aluno bate três vezes na parede… |
+| XIII | A voz no túmulo | o grito; a lanterna revela o cadáver e o gato |
 
-Cada cena é uma função `scene...()` dentro de `index.html`. Os resultados do dado seguem a ordem 1 a 6:
+No fim há quatro perguntas para discussão em grupo.
 
-```js
-["{A} fecha a porta, mas leva um corte fundo.", { a: -1, san: -10, time: -2 }]
-```
+## Publicar no GitHub Pages
 
-- `{A}` = quem agiu · `{R}` / `{R2}` = outros tripulantes sorteados
-- `a`, `r`, `r2`, `all` = vida (−3 mata) · `inf: "a"` = infecta quem agiu
-- `san` = mente · `time` = minutos do reator · `doses`, `item`, `next` (+1 no próximo dado)
+1. No repositório, abra **Settings → Pages**.
+2. Em **Build and deployment**, escolha **Deploy from a branch**, a branch principal e a pasta `/ (root)`.
+3. O link fica no formato `https://<seu-usuario>.github.io/<repositorio>/`.
+
+## Arquivos
+
+| Arquivo | Conteúdo |
+|---|---|
+| `index.html` | estrutura da página e filtros SVG (carvão, recorte de papel, brilho) |
+| `estilo.css` | visual do livro: papel, capa vermelha, tipografia, efeitos |
+| `historia.js` | **o texto do conto**, os títulos e as perguntas de cada parte |
+| `arte.js` | as 13 ilustrações, desenhadas em código |
+| `som.js` | os sons, sintetizados no navegador (nenhum arquivo de áudio) |
+| `app.js` | navegação, pop-up, lanterna, sustos e mecânicas de cada cena |
+
+### Editar o texto ou as perguntas
+
+Tudo está em `historia.js`. Cada parte tem `titulo`, `texto` (um item por parágrafo) e `perguntas` (pares `[pergunta, resposta sugerida]`).
+
+Um trecho marcado com `<span class="gatilho" data-susto="...">` dispara um susto quando o aluno chega nele. O momento é calculado pelo número de palavras antes do trecho, a cerca de 3 palavras por segundo, para que o susto não chegue antes da leitura. Tipos disponíveis: `sussurro`, `tremor`, `sombra`, `olho`, `relampago`, `fogo`, `parede`, `olhos`, `garras`, `forca`, `halito`, `machado`, `calma`, `uivo`, `final`.
+
+## Créditos
+
+- Texto: Edgar Allan Poe, *The Black Cat* (1843), obra em domínio público. A tradução para o português foi feita para esta leitura.
+- Ilustrações: desenhadas em código (SVG), com textura de carvão e recortes de livro pop-up, inspiradas na estética dos livros ilustrados de terror.
+- Fontes: IM Fell English e Rock Salt (Google Fonts, licenças livres).
